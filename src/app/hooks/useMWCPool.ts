@@ -1,15 +1,19 @@
 "use client";
 import { useState } from "react";
-import { API_URL_V2 } from "@/constants/constants"; // Adjust to your config
-import { BLOCK_RANGE } from "@/constants/constants"; // Adjust path if needed
+import { API_URL_V2, BLOCK_RANGE} from "@/constants/constants"; // Adjust to your config
 
 // Example types – adapt to your real API
 interface PoolBlock {
   height: number;
+  hash?: string;
   timestamp?: number;
   edge_bits?: number;
   share_counts?: any;
   gps?: any,
+  active_miners?: any;
+  total_blocks_found?: any;
+  state?: any;
+  difficulty?: any;
 }
 
 // For the "poolBlocksMined" logic
@@ -79,7 +83,7 @@ export function useMWCPool() {
   async function fetchMWCPoolRecentBlocks(latestBlockHeight: number, minedBlockAlgos: { c31: number[] }) {
     try {
       if (!latestBlockHeight) return;
-      const url = `${API_URL_V2}pool/blocks/${latestBlockHeight},20`;
+      const url = `${API_URL_V2}pool/blocks/${latestBlockHeight},10`;
       const resp = await fetch(url);
       if (!resp.ok) return;
       const data = await resp.json();

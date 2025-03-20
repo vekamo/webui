@@ -5,31 +5,35 @@ import type { NextRequest } from "next/server";
 const PROTECTED_PATHS = ["/miners", "/rigs", "/payout"];
 
 export function middleware(request: NextRequest) {
-  // 1. Which route is the user trying to visit?
   const { pathname } = request.nextUrl;
 
-  // 2. If path is not protected, do nothing
+  // 1) If path is not protected, we do nothing
   if (!PROTECTED_PATHS.some((path) => pathname.startsWith(path))) {
     return NextResponse.next();
   }
 
-  // 3. Check if user is logged in (e.g., via "token" cookie)
-  const token = request.cookies.get("token")?.value;
+  // 2) Log all cookies
+  const allCookies = request.cookies.getAll();
+  console.log("Middleware sees all cookies:", allCookies);
 
-  // 4. If no token, redirect to /login
+  // 3) Check 'token' cookie
+  const token = request.cookies.get("token")?.value;
+  console.log("Middleware sees token:", token);
+
+  // 4) If no token => redirect => /login
   if (!token) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
-  // 5. Otherwise, allow them to continue
+  // 5) Otherwise, allow
   return NextResponse.next();
 }
 
-// 🟨 CONFIG SECTION: which routes to apply middleware on
 export const config = {
   matcher: [
-    "/miners/:path*",  // e.g. /miners, /miners/abc
-    "/rigs/:path*",    // e.g. /rigs, /rigs/detail
-    "/payout/:path*",  // e.g. /payout, /payout/history
+    "/miners/:path*",
+    "/rigs/:path*",
+    "/payout/:path*",
   ],
 };

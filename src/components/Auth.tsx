@@ -9,17 +9,25 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // 1) We track whether we've finished checking if user is already logged in
+  const [authCheckDone, setAuthCheckDone] = useState(false);
+  // 2) Whether the user is already logged in (based on cookie)
+  const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
 
   const router = useRouter();
   const { login, signup, logout, authError, isLoading } = useAuth();
 
-  // Check if user is logged in (via cookie) on component mount
+  // Check cookie on mount
   useEffect(() => {
     const token = Cookies.get("token");
-    setIsLoggedIn(!!token);
+    // If token exists, user is effectively logged in
+    setAlreadyLoggedIn(!!token);
+    // Mark the check as done
+    setAuthCheckDone(true);
   }, []);
 
+  // Handle form submission (sign up or sign in)
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -27,24 +35,39 @@ export default function Auth() {
       // Sign Up
       const result = await signup(username, password);
       if (result) {
-        router.push("/miners");
+        router.back();
       }
     } else {
       // Sign In
       const result = await login(username, password);
       if (result) {
-        router.push("/miners");
+        router.back();
       }
     }
   }
 
   function handleLogout() {
     logout();
-    setIsLoggedIn(false);
+    setAlreadyLoggedIn(false);
   }
 
-  // 1) If already logged in, replace sign in/up form with a logout button
-  if (isLoggedIn) {
+  // -----------------------------------------------------------
+  // Step 1: If we haven't finished checking the cookie, 
+  // show a short "Checking authentication..." screen.
+  // This avoids a flash of "not logged in" content while the cookie is read.
+  // -----------------------------------------------------------
+  if (!authCheckDone) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        <p>Checking authentication...</p>
+      </div>
+    );
+  }
+
+  // -----------------------------------------------------------
+  // Step 2: If user is ALREADY logged in, show the "already logged in" UI.
+  // -----------------------------------------------------------
+  if (alreadyLoggedIn) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-8 sm:px-16 bg-black text-white">
         <h1 className="text-3xl font-extrabold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
@@ -63,7 +86,9 @@ export default function Auth() {
     );
   }
 
-  // 2) If not logged in, show sign in/up form
+  // -----------------------------------------------------------
+  // Step 3: If NOT logged in, show the sign in/up form
+  // -----------------------------------------------------------
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-8 sm:px-16 bg-black text-white">
       {/* Title */}
