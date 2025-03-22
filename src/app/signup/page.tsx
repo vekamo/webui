@@ -46,7 +46,11 @@ export default function SignupPage() {
     const success = await signup(username, password);
     if (success) {
       // If signup is successful, redirect to "nextUrl"
-      router.push(nextUrl);
+      setTimeout(() => {
+        router.refresh();
+        router.push(nextUrl);
+      }, 1000);
+      
 
       // If you also want to auto-login after signup, you could do:
       /*

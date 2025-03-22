@@ -42,10 +42,12 @@ export default function Navbar() {
     Cookies.remove("expiration");
 
     setIsLoggedIn(false);
-    router.refresh();
+    
     setTimeout(() => {
+      router.refresh();
       router.push("/login");
     }, 300);
+    router.refresh();
   }
 
   const rawUsername = Cookies.get("username") || "User";

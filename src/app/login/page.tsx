@@ -75,8 +75,9 @@ export default function LoginPage() {
     if (success) {
       // Navigate to the originally intended page
       setTimeout(() => {
+        router.refresh();
         router.push(nextUrl);
-      }, 300);
+      }, 1000);
       //window.location.href = nextUrl
     }
   }
