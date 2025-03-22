@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDataContext } from "@/app/context/DataContext";
-
+import Cookies from "js-cookie";
 import BalanceInfo, { BalanceDetails } from "@/components/payout/balanceUsers";
 import PayoutSetupCard from "@/components/payout/payoutCard";
 import LatestPaymentsTable, { LatestPaymentItem } from "@/components/payout/latestPaymentCard";
@@ -19,6 +19,7 @@ export default function PayoutPage() {
     immatureBalance,
   } = useDataContext();
 
+
   // Local states
   const [payoutAddress, setPayoutAddress] = useState("");
   const [slateResponse, setSlateResponse] = useState("");
@@ -28,7 +29,7 @@ export default function PayoutPage() {
   return (
     <div className="min-h-screen bg-black text-white font-[family-name:var(--font-geist-mono)]">
       {/* HEADER */}
-      <header className="w-full px-6 py-6 bg-black border-b border-white/[.1]">
+      <header className="w-full px-6 py-6 bg-black">
         <h1 className="text-5xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight">
           Payouts
         </h1>
@@ -37,6 +38,15 @@ export default function PayoutPage() {
         </p>
       </header>
 
+      <hr
+        className="
+          w-full h-px border-0
+          bg-gradient-to-r
+          from-transparent via-gray-700 to-transparent
+          my-0
+        "
+      />
+      
       {/* MAIN => same approach as your Dashboard */}
       <main className="min-h-[calc(100vh-5rem)] px-8 sm:px-16 pb-16">
         {error ? (

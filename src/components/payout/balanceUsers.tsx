@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Cookies from "js-cookie";
 
 export interface BalanceDetails {
   id: number;
@@ -52,6 +53,7 @@ export default function BalanceInfo({
     min_payout,
   } = payout;
 
+  const username = Cookies.get("username") || "User";
   // Format amounts
   const currentAmtStr = formatAmount(amount);
   const totalAmtStr = formatAmount(total_amount);
@@ -59,7 +61,6 @@ export default function BalanceInfo({
 
   // “INACTIVE” (red) / “ACTIVE” (blue) or whichever states you want
   const lockedColor = locked ? "text-red-400" : "text-blue-400";
-  const lockedLabel = locked ? "INACTIVE" : "ACTIVE";
 
   return (
     <div
@@ -77,10 +78,9 @@ export default function BalanceInfo({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
           <h2 className="text-2xl font-extrabold text-white">Balance</h2>
+          <p className={`text-sm text-gray-300 uppercase text-gray-200"`}>{username}</p>
         </div>
-        <p className={`text-sm font-bold ${lockedColor}`}>
-          {lockedLabel}
-        </p>
+        
       </div>
 
       {/* Available amount */}

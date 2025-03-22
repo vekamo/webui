@@ -1,24 +1,19 @@
 "use client";
-import { createContext, useContext, useState, ReactNode } from "react";
-import Cookies from "js-cookie";
+import React, { createContext, useContext, useState } from "react";
 
-interface AuthContextType {
+interface AuthContextValue {
   isLoggedIn: boolean;
-  setIsLoggedIn: (logged: boolean) => void;
+  setIsLoggedIn: (value: boolean) => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue>({
+  isLoggedIn: false,
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  setIsLoggedIn: () => {},
+});
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  // 1) Immediately check if "token" cookie exists
-  const hasToken = !!Cookies.get("token");
-  // 2) Set isLoggedIn based on that cookie from the start
-  const [isLoggedIn, setIsLoggedIn] = useState(hasToken);
-
-  // If you like, you can still watch or update this 
-  // with a useEffect if the token changes – 
-  // but for the "refresh" race issue, 
-  // this sync read is enough.
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, setIsLoggedIn }}>
@@ -27,10 +22,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuthContext(): AuthContextType {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuthContext must be used within an AuthProvider");
-  }
-  return context;
+export function useAuthContext() {
+  return useContext(AuthContext);
 }

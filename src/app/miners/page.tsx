@@ -28,7 +28,7 @@ export default function MinersPage() {
   return (
     <div className="min-h-screen bg-black text-white font-[family-name:var(--font-geist-mono)]">
       {/* HEADER */}
-      <header className="w-full px-6 py-6 bg-black border-b border-white/[.1]">
+      <header className="w-full px-6 py-6 bg-black">
         <h1 className="text-5xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight">
           Miners
         </h1>
@@ -36,6 +36,15 @@ export default function MinersPage() {
           Real-time overview of your mining performance.
         </p>
       </header>
+
+      <hr
+        className="
+          w-full h-px border-0
+          bg-gradient-to-r
+          from-transparent via-gray-700 to-transparent
+          my-0
+        "
+      />
 
       {/* MAIN => same as Dashboard approach */}
       <main className="min-h-[calc(100vh-5rem)] px-8 sm:px-16 pb-16">
