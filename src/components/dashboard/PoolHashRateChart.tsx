@@ -12,32 +12,35 @@ import {
   Tooltip,
   Legend,
   Filler,
+  ChartData,
+  ChartOptions,
+  TooltipItem,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 
-// Register Chart.js + time scale
-ChartJS.register(
-  TimeScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+ChartJS.register(TimeScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+
+// ----------------------------
+// 1) Data types
+// ----------------------------
+interface MWCPoint {
+  x: number;        // time in ms
+  y: number;        // the hashRate
+  height: number;   // optional
+  difficulty: number;
+}
 
 export interface MWCBlockChartPoint {
-  timestamp: number;
+  timestamp: number;    // in seconds
   hashRate: number;
   height?: number;
   difficulty?: number;
 }
 
-function applyRollingAverage(
-  data: MWCBlockChartPoint[],
-  windowSize = 5
-): MWCBlockChartPoint[] {
+// ----------------------------
+// 2) Rolling average function
+// ----------------------------
+function applyRollingAverage(data: MWCBlockChartPoint[], windowSize = 5): MWCBlockChartPoint[] {
   if (data.length < windowSize) return data;
   const smoothed: MWCBlockChartPoint[] = [];
   const halfWindow = Math.floor(windowSize / 2);
@@ -55,15 +58,45 @@ function applyRollingAverage(
     const mid = Math.floor((start + end) / 2);
     smoothed.push({
       timestamp: data[mid].timestamp,
+      hashRate: avg,
       height: data[mid].height,
       difficulty: data[mid].difficulty,
-      hashRate: avg,
     });
   }
 
   return smoothed;
 }
 
+// ----------------------------
+// 3) Unify timestamps so each data set matches index-for-index
+// ----------------------------
+function unifyTimestamps(
+  pool: MWCBlockChartPoint[],
+  net: MWCBlockChartPoint[]
+) {
+  // 1) Gather all unique timestamps
+  const allTimes = new Set([...pool.map(d => d.timestamp), ...net.map(d => d.timestamp)]);
+  // 2) Sort ascending
+  const sortedTimes = Array.from(allTimes).sort((a, b) => a - b);
+
+  // 3) Build lookup
+  const poolMap = new Map(pool.map(d => [d.timestamp, d]));
+  const netMap = new Map(net.map(d => [d.timestamp, d]));
+
+  // 4) Fill each array
+  const filledPool: MWCBlockChartPoint[] = sortedTimes.map(t =>
+    poolMap.get(t) || { timestamp: t, hashRate: 0 }
+  );
+  const filledNet: MWCBlockChartPoint[] = sortedTimes.map(t =>
+    netMap.get(t) || { timestamp: t, hashRate: 0 }
+  );
+
+  return { poolPlot: filledPool, netPlot: filledNet };
+}
+
+// ----------------------------
+// 4) Component props
+// ----------------------------
 interface Props {
   poolData: MWCBlockChartPoint[];
   networkData: MWCBlockChartPoint[];
@@ -71,54 +104,39 @@ interface Props {
   windowSize?: number;
 }
 
+// ----------------------------
+// 5) Main chart component
+// ----------------------------
 export default function PoolNetworkHashRateChart({
   poolData,
   networkData,
   smooth = true,
   windowSize = 5,
 }: Props) {
-  // 1) Smooth both arrays if needed
-  const poolPlot = smooth ? applyRollingAverage(poolData, windowSize) : poolData;
-  const netPlot = smooth ? applyRollingAverage(networkData, windowSize) : networkData;
+  // 1) Smooth if requested
+  const poolPlotRaw = smooth ? applyRollingAverage(poolData, windowSize) : poolData;
+  const netPlotRaw = smooth ? applyRollingAverage(networkData, windowSize) : networkData;
 
-  // 2) Convert each to Chart.js points (ms for time)
-  const poolPoints = poolPlot.map((d) => ({
-    x: d.timestamp * 1000,
+  // 2) Unify timestamps if we want "index" alignment
+  const { poolPlot, netPlot } = unifyTimestamps(poolPlotRaw, netPlotRaw);
+
+  // 3) Convert each to chart data shape
+  const poolPoints: MWCPoint[] = poolPlot.map((d) => ({
+    x: d.timestamp * 1000,     // ms for Chart.js
     y: d.hashRate,
-    height: d.height || 0,
-    difficulty: d.difficulty || 0,
+    height: d.height ?? 0,
+    difficulty: d.difficulty ?? 0,
   }));
 
-  const netPoints = netPlot.map((d) => ({
+  const netPoints: MWCPoint[] = netPlot.map((d) => ({
     x: d.timestamp * 1000,
     y: d.hashRate,
-    height: d.height || 0,
-    difficulty: d.difficulty || 0,
+    height: d.height ?? 0,
+    difficulty: d.difficulty ?? 0,
   }));
 
-  // Gradient helpers
-  function createLineGradient(ctx: any, startColor: string, endColor: string) {
-    const { chartArea } = ctx.chart;
-    if (!chartArea) return startColor;
-    const { left, right } = chartArea;
-    const gradient = ctx.chart.ctx.createLinearGradient(left, 0, right, 0);
-    gradient.addColorStop(0, startColor);
-    gradient.addColorStop(1, endColor);
-    return gradient;
-  }
-
-  function createFillGradient(ctx: any, startColor: string, endColor: string) {
-    const { chartArea } = ctx.chart;
-    if (!chartArea) return startColor;
-    const { top, bottom } = chartArea;
-    const gradient = ctx.chart.ctx.createLinearGradient(0, top, 0, bottom);
-    gradient.addColorStop(0, startColor);
-    gradient.addColorStop(1, endColor);
-    return gradient;
-  }
-
-  // 3) Build chart data with both datasets (Network first, then Pool)
-  const chartData = {
+  // 4) Create Chart.js dataset config
+  const chartData: ChartData<"line", MWCPoint[], number> = {
     datasets: [
       {
         label: "Network",
@@ -126,9 +144,9 @@ export default function PoolNetworkHashRateChart({
         fill: true,
         tension: 0.5,
         cubicInterpolationMode: "monotone",
-        borderColor: (ctx: any) => createLineGradient(ctx, "#14b8a6", "#4ade80"),
+        borderColor: (ctx) => createLineGradient(ctx, "#14b8a6", "#4ade80"),
         borderWidth: 2,
-        backgroundColor: (ctx: any) =>
+        backgroundColor: (ctx) =>
           createFillGradient(ctx, "rgba(20,184,166,0.3)", "rgba(20,184,166,0)"),
         pointRadius: 0,
         yAxisID: "y",
@@ -139,9 +157,9 @@ export default function PoolNetworkHashRateChart({
         fill: true,
         tension: 0.5,
         cubicInterpolationMode: "monotone",
-        borderColor: (ctx: any) => createLineGradient(ctx, "#a78bfa", "#fff1f2"),
+        borderColor: (ctx) => createLineGradient(ctx, "#a78bfa", "#fff1f2"),
         borderWidth: 2,
-        backgroundColor: (ctx: any) =>
+        backgroundColor: (ctx) =>
           createFillGradient(ctx, "rgba(167,139,250,0.3)", "rgba(167,139,250,0)"),
         pointRadius: 0,
         yAxisID: "y",
@@ -149,12 +167,12 @@ export default function PoolNetworkHashRateChart({
     ],
   };
 
-  // 4) Chart config + styling changes
-  const options = {
+  // 5) Chart.js options
+  const options: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
-      mode: "index",
+      mode: "index", // <<-- now we can safely do index alignment
       intersect: false,
     },
     scales: {
@@ -166,12 +184,10 @@ export default function PoolNetworkHashRateChart({
           },
         },
         ticks: {
-          // Lighter gray text for axis
           color: "#cbd5e1",
           font: { size: 12 },
         },
         grid: {
-          // Subtle grid lines
           color: "rgba(255,255,255,0.1)",
         },
       },
@@ -191,7 +207,6 @@ export default function PoolNetworkHashRateChart({
       legend: {
         display: true,
         labels: {
-          // Make legend labels a bit brighter
           color: "#e2e8f0",
           font: { size: 13 },
         },
@@ -217,9 +232,10 @@ export default function PoolNetworkHashRateChart({
           weight: "normal",
         },
         callbacks: {
-          title: (contexts: any) => {
-            if (!contexts.length) return "";
-            const raw = contexts[0].raw;
+          title: (items: TooltipItem<"line">[]) => {
+            if (!items.length) return "";
+            // just use the first dataset's raw point
+            const raw = items[0].raw as MWCPoint;
             const dateObj = new Date(raw.x);
             return dateObj.toLocaleString([], {
               year: "numeric",
@@ -229,9 +245,9 @@ export default function PoolNetworkHashRateChart({
               minute: "2-digit",
             });
           },
-          label: (context: any) => {
-            const datasetLabel = context.dataset.label ?? "Line";
-            const raw = context.raw;
+          label: (item: TooltipItem<"line">) => {
+            const datasetLabel = item.dataset.label ?? "Line";
+            const raw = item.raw as MWCPoint;
             const lines = [datasetLabel];
             if (raw.height && raw.height > 0) {
               lines.push(`Height: ${raw.height.toLocaleString()}`);
@@ -239,7 +255,7 @@ export default function PoolNetworkHashRateChart({
             if (raw.difficulty && raw.difficulty > 0) {
               lines.push(`Difficulty: ${raw.difficulty.toLocaleString()}`);
             }
-            lines.push(`GPS: ${(+raw.y).toLocaleString()} gps`);
+            lines.push(`GPS: ${raw.y.toLocaleString()} gps`);
             return lines;
           },
         },
@@ -247,7 +263,7 @@ export default function PoolNetworkHashRateChart({
     },
   };
 
-  // 5) Render container + chart
+  // 6) Render
   return (
     <div
       className="
@@ -277,4 +293,27 @@ export default function PoolNetworkHashRateChart({
       </div>
     </div>
   );
+}
+
+// ----------------------------
+// Helper functions for gradients
+// ----------------------------
+function createLineGradient(ctx: any, startColor: string, endColor: string) {
+  const { chartArea } = ctx.chart;
+  if (!chartArea) return startColor;
+  const { left, right } = chartArea;
+  const gradient = ctx.chart.ctx.createLinearGradient(left, 0, right, 0);
+  gradient.addColorStop(0, startColor);
+  gradient.addColorStop(1, endColor);
+  return gradient;
+}
+
+function createFillGradient(ctx: any, startColor: string, endColor: string) {
+  const { chartArea } = ctx.chart;
+  if (!chartArea) return startColor;
+  const { top, bottom } = chartArea;
+  const gradient = ctx.chart.ctx.createLinearGradient(0, top, 0, bottom);
+  gradient.addColorStop(0, startColor);
+  gradient.addColorStop(1, endColor);
+  return gradient;
 }

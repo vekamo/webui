@@ -5,8 +5,24 @@ import { API_URL, API_URL_V2, BLOCK_RANGE } from "@/constants/constants";
 import { basicAuth, basicAuthLegacy } from "@/utils/utils";
 
 interface MinerBlock {
+  id: number;
+  timestamp: number;
   height: number;
-  [key: string]: any; // for fields like gps, shares, etc.
+  valid_shares: number;
+  invalid_shares: number;
+  stale_shares: number;
+  total_valid_shares: number;
+  total_invalid_shares: number;
+  total_stale_shares: number;
+  dirty: number;
+  user_id: number;
+  gps: Array<{
+    edge_bits: number;
+    gps: number;
+  }>;
+  mwc_stats_id: number | null;
+  pool_stats_id: number | null;
+  worker_stats_id: number;
 }
 
 interface RigGpsData {
@@ -18,24 +34,21 @@ interface RigShareData {
 }
 
 interface MinerShareData {
-  [blockKey: string]: any; // e.g. { c31ValidShares: 42, ... }
+  [blockKey: string]: any;
 }
 
 interface MinerPaymentData {
   [key: string]: any;
 }
 
-/** If you want to store the array of latest payments, define an interface or keep it flexible. */
 interface LatestMinerPaymentData {
   [key: string]: any;
 }
 
-/**
- * A hook that replicates the old Redux-based fetch logic 
- * and stores everything in local state.
- */
 export function useMinerData() {
+  // ------------------------------------------------------------------
   // 1) States
+  // ------------------------------------------------------------------
   const [minerHistorical, setMinerHistorical] = useState<MinerBlock[]>([]);
   const [rigGpsData, setRigGpsData] = useState<RigGpsData>({ c31: [] });
   const [rigShareData, setRigShareData] = useState<RigShareData>({});
@@ -43,15 +56,34 @@ export function useMinerData() {
   const [minerShareData, setMinerShareData] = useState<MinerShareData>({});
   const [minerPaymentData, setMinerPaymentData] = useState<MinerPaymentData>({});
   const [totalSharesSubmitted, setTotalSharesSubmitted] = useState<number>(0);
-  // NEW: store an array/object for the “latest” payments
+
   const [latestMinerPayments, setLatestMinerPayments] = useState<LatestMinerPaymentData>({});
-  // NEW: store the immature balance
   const [immatureBalance, setImmatureBalance] = useState<number>(0);
 
+  // Additional new states for “next block reward” and “latest block reward”
+  const [nextBlockReward, setNextBlockReward] = useState<number | null>(null);
+  const [latestBlockReward, setLatestBlockReward] = useState<number | null>(null);
+
   // ------------------------------------------------------------------
-  // fetchMinerData => local "minerHistorical"
+  // 2) Additional local states for fetching/finalizing TX slate
   // ------------------------------------------------------------------
-  async function fetchMinerDataHook(id: string, token: string, latestBlockHeight: number) {
+  const [isTxSlateLoading, setIsTxSlateLoading] = useState(false);
+  const [minerPaymentTxSlate, setMinerPaymentTxSlate] = useState<string | null>(null);
+  const [manualPaymentError, setManualPaymentError] = useState<any>(null);
+
+  const [isPaymentSettingProcessing, setIsPaymentSettingProcessing] = useState(false);
+  const [manualPaymentSubmission, setManualPaymentSubmission] = useState<any>(null);
+
+  // ------------------------------------------------------------------
+  // 3) Methods
+  // ------------------------------------------------------------------
+
+  // --------------- fetchMinerData ---------------
+  async function fetchMinerDataHook(
+    id: string,
+    token: string,
+    latestBlockHeight: number
+  ) {
     try {
       if (!latestBlockHeight) return;
 
@@ -80,9 +112,7 @@ export function useMinerData() {
     }
   }
 
-  // ------------------------------------------------------------------
-  // fetchRigData => local "rigGpsData", "rigShareData", "rigWorkers"
-  // ------------------------------------------------------------------
+  // --------------- fetchRigData ---------------
   async function fetchRigDataHook(
     id: string,
     token: string,
@@ -116,6 +146,7 @@ export function useMinerData() {
 
       for (const blockHeightKey in newRigData) {
         const blockHeight = parseInt(blockHeightKey, 10);
+        // We assume we skip if the block is not in `blocksByHeight` or too early
         if (!blocksByHeight[blockHeight - 5]) continue;
 
         const previousPeriodTimestamp = blocksByHeight[blockHeight - 5].timestamp;
@@ -153,17 +184,19 @@ export function useMinerData() {
               const previousBlockGps = (previousBlockData as any)[`c${algo}`]?.[rigWorkerKey];
               const currentPeriodGps = (numberShares * 42) / periodDuration;
 
+              const blockTyped = block as Record<string, any>;
+
               if (!previousBlockGps) {
-                block[`c${algo}`] = block[`c${algo}`] || {};
-                block[`c${algo}`][rigWorkerKey] = currentPeriodGps;
-                block[`c${algo}`]["Total"] =
-                  (block[`c${algo}`]["Total"] || 0) + currentPeriodGps;
+                blockTyped[`c${algo}`] = blockTyped[`c${algo}`] || {};
+                blockTyped[`c${algo}`][rigWorkerKey] = currentPeriodGps;
+                blockTyped[`c${algo}`]["Total"] =
+                  (blockTyped[`c${algo}`]["Total"] || 0) + currentPeriodGps;
               } else {
                 const smoothed = (currentPeriodGps + previousBlockGps) / 2;
-                block[`c${algo}`] = block[`c${algo}`] || {};
-                block[`c${algo}`][rigWorkerKey] = smoothed;
-                block[`c${algo}`]["Total"] =
-                  (block[`c${algo}`]["Total"] || 0) + smoothed;
+                blockTyped[`c${algo}`] = blockTyped[`c${algo}`] || {};
+                blockTyped[`c${algo}`][rigWorkerKey] = smoothed;
+                blockTyped[`c${algo}`]["Total"] =
+                  (blockTyped[`c${algo}`]["Total"] || 0) + smoothed;
               }
             }
           }
@@ -185,9 +218,7 @@ export function useMinerData() {
     }
   }
 
-  // ------------------------------------------------------------------
-  // fetchMinerShareData => local "minerShareData"
-  // ------------------------------------------------------------------
+  // --------------- fetchMinerShareData ---------------
   async function fetchMinerShareDataHook(id: string, token: string, latestBlockHeight: number) {
     try {
       if (!latestBlockHeight) return;
@@ -223,9 +254,7 @@ export function useMinerData() {
     }
   }
 
-  // ------------------------------------------------------------------
-  // fetchMinerTotalValidShares => local "totalSharesSubmitted"
-  // ------------------------------------------------------------------
+  // --------------- fetchMinerTotalValidShares ---------------
   async function fetchMinerTotalValidSharesHook(id: string, token: string) {
     try {
       const url = `${API_URL_V2}worker/stat/${id}/total_valid_shares`;
@@ -241,13 +270,10 @@ export function useMinerData() {
     }
   }
 
-  // ------------------------------------------------------------------
-  // fetchMinerPaymentData => local "minerPaymentData"
-  // ------------------------------------------------------------------
+  // --------------- fetchMinerPaymentData ---------------
   async function fetchMinerPaymentDataHook(id: string, legacyToken: string) {
     try {
       const url = `${API_URL}worker/utxo/${id}`;
-      console.log("url is:", url);
       const resp = await fetch(url, {
         headers: { authorization: basicAuthLegacy(legacyToken) },
       });
@@ -262,20 +288,15 @@ export function useMinerData() {
     }
   }
 
-  // ------------------------------------------------------------------
-  // NEW: fetchLatestMinerPayments => local "latestMinerPayments"
-  // ------------------------------------------------------------------
+  // --------------- fetchLatestMinerPayments ---------------
   async function fetchLatestMinerPaymentsHook(id: string, token: string) {
     try {
-      // For example: /worker/payments/:id/200 
-      // (the '200' is how many you want to fetch)
       const url = `${API_URL_V2}worker/payments/${id}/200`;
       const resp = await fetch(url, {
         headers: { Authorization: basicAuth(token) },
       });
-      if (!resp.ok) {
-        return;
-      }
+      if (!resp.ok) return;
+
       const data = await resp.json();
       setLatestMinerPayments(data);
     } catch (e) {
@@ -283,9 +304,7 @@ export function useMinerData() {
     }
   }
 
-  // ------------------------------------------------------------------
-  //  NEW: fetchMinerImmatureBalance => local "immatureBalance"
-  // ------------------------------------------------------------------
+  // --------------- fetchMinerImmatureBalance ---------------
   async function fetchMinerImmatureBalanceHook(id: string, legacyToken: string) {
     try {
       const url = `${API_URL}worker/estimate/payment/${id}`;
@@ -302,11 +321,148 @@ export function useMinerData() {
     }
   }
 
+  // --------------- fetchMinerNextBlockReward ---------------
+  async function fetchMinerNextBlockRewardHook(id: string, legacyToken: string) {
+    try {
+      const url = `${API_URL}worker/estimate/payment/${id}/next`;
+      const resp = await fetch(url, {
+        headers: {
+          authorization: basicAuthLegacy(legacyToken),
+        },
+      });
+      if (!resp.ok) return;
+
+      const data = await resp.json();
+      if (isNaN(data.next)) return;
+      setNextBlockReward(data.next);
+    } catch (e) {
+      console.log("fetchMinerNextBlockRewardHook error: ", e);
+    }
+  }
+
+  // --------------- fetchMinerLatestBlockReward ---------------
+  async function fetchMinerLatestBlockRewardHook(
+    id: string,
+    legacyToken: string,
+    latestPoolBlock: number
+  ) {
+    try {
+      if (!Number.isFinite(latestPoolBlock)) return;
+
+      const url = `${API_URL}worker/estimate/payment/${id}/${latestPoolBlock}`;
+      const resp = await fetch(url, {
+        headers: {
+          authorization: basicAuthLegacy(legacyToken),
+        },
+      });
+      if (!resp.ok) return;
+
+      const data = await resp.json();
+      const reward = data[latestPoolBlock];
+      if (isNaN(reward)) return;
+
+      setLatestBlockReward(reward);
+    } catch (e) {
+      console.log("fetchMinerLatestBlockReward error: ", e);
+    }
+  }
+
+  function stripWrappingQuotes(str: string) {
+    if (str.startsWith('"') && str.endsWith('"')) {
+      return str.slice(1, -1);
+    }
+    return str;
+  }
+
+  // --------------- fetchMinerPaymentTxSlate ---------------
+  async function fetchMinerPaymentTxSlateHook(id: string, legacyToken: string, address: string) {
+    setIsTxSlateLoading(true);
+    setManualPaymentError(null);
+
+    try {
+      const url = `${API_URL}pool/payment/get_tx_slate/${id}/${address}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: basicAuthLegacy(legacyToken),
+        },
+      });
+      if (!resp.ok) {
+        const errorMessageObject = await resp.json();
+        setManualPaymentError(errorMessageObject);
+      } else {
+        const data = await resp.json();
+        const cleanedSlatepack = stripWrappingQuotes(data);
+        setMinerPaymentTxSlate(cleanedSlatepack);
+      }
+    } catch (e) {
+      console.log("fetchMinerPaymentTxSlateHook Error:", e);
+      setManualPaymentError(e);
+    } finally {
+      setIsTxSlateLoading(false);
+    }
+  }
+
+  // --------------- finalizeTxSlate ---------------
+  async function finalizeTxSlateHook(id: string, legacyToken: string, slate: any) {
+    setIsPaymentSettingProcessing(true);
+    setManualPaymentError(null);
+
+    try {
+      const url = `${API_URL}pool/payment/submit_tx_slate/${id}`;
+      const options = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: basicAuthLegacy(legacyToken),
+        },
+        body: JSON.stringify({ slate }),
+      };
+
+      const resp = await fetch(url, options);
+      if (!resp.ok) {
+        const errorMessageObject = await resp.json();
+        setManualPaymentError(errorMessageObject);
+      } else {
+        setManualPaymentSubmission(await resp.json());
+      }
+    } catch (error) {
+      console.error("finalizeTxSlateHook Error:", error);
+      setManualPaymentError(error);
+    } finally {
+      setIsPaymentSettingProcessing(false);
+    }
+  }
+
   // ------------------------------------------------------------------
-  // Return states + methods
+  // 4) Reset method for clearing all the above states (useful on logout)
+  // ------------------------------------------------------------------
+  function resetMinerData() {
+    setMinerHistorical([]);
+    setRigGpsData({ c31: [] });
+    setRigShareData({});
+    setRigWorkers([]);
+    setMinerShareData({});
+    setMinerPaymentData({});
+    setTotalSharesSubmitted(0);
+    setLatestMinerPayments({});
+    setImmatureBalance(0);
+    setNextBlockReward(null);
+    setLatestBlockReward(null);
+
+    // TX slate states
+    setIsTxSlateLoading(false);
+    setMinerPaymentTxSlate(null);
+    setManualPaymentError(null);
+    setIsPaymentSettingProcessing(false);
+    setManualPaymentSubmission(null);
+  }
+
+  // ------------------------------------------------------------------
+  // 5) Return all states + methods (including resetMinerData)
   // ------------------------------------------------------------------
   return {
-    // states
+    // States
     minerHistorical,
     rigGpsData,
     rigShareData,
@@ -315,15 +471,31 @@ export function useMinerData() {
     minerPaymentData,
     totalSharesSubmitted,
     latestMinerPayments,
-    immatureBalance, // <--- new state for immature balance
+    immatureBalance,
+    nextBlockReward,
+    latestBlockReward,
 
-    // methods
+    isTxSlateLoading,
+    minerPaymentTxSlate,
+    manualPaymentError,
+    isPaymentSettingProcessing,
+    manualPaymentSubmission,
+
+    // Fetch methods
     fetchMinerData: fetchMinerDataHook,
     fetchRigData: fetchRigDataHook,
     fetchMinerShareData: fetchMinerShareDataHook,
     fetchMinerTotalValidShares: fetchMinerTotalValidSharesHook,
     fetchMinerPaymentData: fetchMinerPaymentDataHook,
     fetchLatestMinerPayments: fetchLatestMinerPaymentsHook,
-    fetchMinerImmatureBalance: fetchMinerImmatureBalanceHook, // <--- new method
+    fetchMinerImmatureBalance: fetchMinerImmatureBalanceHook,
+    fetchMinerNextBlockReward: fetchMinerNextBlockRewardHook,
+    fetchMinerLatestBlockReward: fetchMinerLatestBlockRewardHook,
+
+    fetchMinerPaymentTxSlate: fetchMinerPaymentTxSlateHook,
+    finalizeTxSlate: finalizeTxSlateHook,
+
+    // Reset method
+    resetMinerData,
   };
 }

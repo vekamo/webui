@@ -5,53 +5,69 @@ import {
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 
-/** Convert atomic => MWC, 9 decimals */
-function formatToMWC(value: number): string {
-  const mwcValue = value / 1e9;
-  return mwcValue.toFixed(9);
+/** The shape of each payment item. */
+export interface LatestPaymentItem {
+  id: number;
+  timestamp: string;
+  height: number;
+  address: string;
+  amount: number; // atomic => for conversion
+  method: string;
+  fee: number; // atomic => for conversion
+  state: string; // e.g. "sent" => show Resume
+  tx_data: string;
+  slate_id?: string; // partial slatepack
+  // ... add additional fields if needed
 }
 
-/** Shorten strings if over 15 chars */
+interface LatestPaymentsTableProps {
+  payments: LatestPaymentItem[];
+  onResumeTx?: (address: string, txData: string) => void; // optional callback
+}
+
+/** Shorten a string longer than 15 chars, e.g. "abcdefg12345hijklmnop" => "abcde...klmnop" */
 function shortenIfLong(str?: string): string {
   if (!str) return "N/A";
   if (str.length <= 15) return str;
   return str.slice(0, 5) + "..." + str.slice(-5);
 }
 
-export interface LatestPaymentItem {
-  id: number;
-  timestamp: string;
-  height: number;
-  uuid?: string;   // if your endpoint has it
-  address: string;
-  amount: number;  // atomic
-  method: string;
-  fee: number;     // atomic
-  failure_count: number;
-  invoked_by: string;
-  state: string;
-  tx_data: string;
-  user_id: number;
+/** Convert atomic amounts (1e9) to MWC with 9 decimals. */
+function formatToMWC(value: number): string {
+  return (value / 1e9).toFixed(9);
 }
 
-function getStateTextClass(stateValue: string) {
+/** Map payment state to a text color class. */
+function getStateTextClass(stateValue?: string): string {
+  if (!stateValue) {
+    return "text-gray-300";
+  }
   switch (stateValue.toLowerCase()) {
     case "confirmed":
       return "text-green-400";
     case "expired":
+      return "text-gray-400";
+    case "sent":
+      return "text-yellow-400";
+    case "posted":
+      return "text-blue-400";
+    case "canceled":
       return "text-red-400";
     default:
       return "text-gray-300";
   }
 }
 
-export default function LatestPaymentsTable({ payments }: {
-  payments: LatestPaymentItem[];
-}) {
-  if (!payments || payments.length === 0) return null;
-
+/** LatestPaymentsTable component */
+export default function LatestPaymentsTable({
+  payments,
+  onResumeTx,
+}: LatestPaymentsTableProps) {
   const [justCopiedAddrRowId, setJustCopiedAddrRowId] = useState<number | null>(null);
   const [justCopiedUuidRowId, setJustCopiedUuidRowId] = useState<number | null>(null);
+
+  // If no payments, show nothing
+  if (!payments || payments.length === 0) return null;
 
   async function handleCopyAddress(rowId: number, fullAddr: string) {
     try {
@@ -63,9 +79,9 @@ export default function LatestPaymentsTable({ payments }: {
     }
   }
 
-  async function handleCopyUuid(rowId: number, fullUuid: string) {
+  async function handleCopyUuid(rowId: number, uuid: string) {
     try {
-      await navigator.clipboard.writeText(fullUuid);
+      await navigator.clipboard.writeText(uuid);
       setJustCopiedUuidRowId(rowId);
       setTimeout(() => setJustCopiedUuidRowId(null), 3000);
     } catch (err) {
@@ -76,10 +92,8 @@ export default function LatestPaymentsTable({ payments }: {
   return (
     <div
       className="
-        w-full          /* No max-w- or mx-auto here */
-        mt-8
-        rounded-lg
-        shadow-md
+        w-full mt-8
+        rounded-lg shadow-md
         bg-gradient-to-r from-[#182026] to-[#0f1215]
         border border-[#2A2D34]
         p-6 sm:p-8
@@ -87,9 +101,12 @@ export default function LatestPaymentsTable({ payments }: {
         font-[family-name:var(--font-geist-mono)]
       "
     >
-      <h2 className="text-xl tracking-tight mb-4 text-white">
+      <h2 className="text-xl sm:text-2xl font-extrabold text-white">
         Latest Payments
       </h2>
+      <p className="text-sm text-gray-400">
+        The most recent payments and their statuses.
+      </p>
 
       <div className="overflow-x-auto">
         <table className="w-full text-xs text-left text-gray-300">
@@ -104,59 +121,70 @@ export default function LatestPaymentsTable({ payments }: {
               <th className="py-3 px-4 uppercase">Method</th>
               <th className="py-3 px-4 uppercase">Fee (MWC)</th>
               <th className="py-3 px-4 uppercase">State</th>
+              <th className="py-3 px-4 uppercase">Actions</th>
             </tr>
           </thead>
+
           <tbody>
-            {payments.map((p) => {
+            {payments.map((p, index) => {
+              // Use p.id if it's guaranteed unique; otherwise fallback to index
+              const rowKey = p.id != null ? p.id : `row-${index}`;
               const dateStr = new Date(p.timestamp).toLocaleString();
               const stateClass = getStateTextClass(p.state);
               const amountStr = formatToMWC(p.amount);
               const feeStr = formatToMWC(p.fee);
 
-              const shortUuid = shortenIfLong(p.uuid || "N/A");
-              const shortAddr = shortenIfLong(p.address);
-
-              const isAddrCopied = justCopiedAddrRowId === p.id;
-              const isUuidCopied = justCopiedUuidRowId === p.id;
+              // Shorten text for display
+              const shortUuid = shortenIfLong(p.slate_id);
+              const shortAddress = shortenIfLong(p.address);
 
               return (
                 <tr
-                  key={p.id}
-                  className="border-b border-[#2A2D34] hover:bg-[#23262c] transition-colors"
+                  key={rowKey}
+                  className="border-b border-[#2A2D34] hover:bg-[#23262c]"
                 >
+                  {/* ID */}
                   <td className="py-2 px-4">{p.id}</td>
+
+                  {/* Timestamp */}
                   <td className="py-2 px-4">{dateStr}</td>
+
+                  {/* Height */}
                   <td className="py-2 px-4">{p.height}</td>
 
+                  {/* UUID */}
                   <td className="py-2 px-4">
-                    <div className="flex items-center gap-2">
-                      <span>{shortUuid}</span>
-                      {p.uuid && p.uuid.length > 0 && (
+                    {p.slate_id ? (
+                      <div className="flex items-center gap-2">
+                        <span>{shortUuid}</span>
                         <button
-                          onClick={() => handleCopyUuid(p.id, p.uuid!)}
-                          className="text-gray-400 hover:text-blue-500 transition-colors"
-                          title="Copy full UUID"
+                          onClick={() => handleCopyUuid(p.id, p.slate_id!)}
+                          className="text-gray-400 hover:text-blue-500"
+                          title="Copy Slate ID"
                         >
-                          {isUuidCopied ? (
+                          {justCopiedUuidRowId === p.id ? (
                             <CheckCircleIcon className="w-4 h-4 text-green-400" />
                           ) : (
                             <ClipboardDocumentIcon className="w-4 h-4" />
                           )}
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      "N/A"
+                    )}
                   </td>
 
+                  {/* Address */}
                   <td className="py-2 px-4">
                     <div className="flex items-center gap-2">
-                      <span>{shortAddr}</span>
+                      <span>{shortAddress}</span>
                       {p.address && p.address.length > 0 && (
                         <button
                           onClick={() => handleCopyAddress(p.id, p.address)}
-                          className="text-gray-400 hover:text-blue-500 transition-colors"
-                          title="Copy full address"
+                          className="text-gray-400 hover:text-blue-500"
+                          title="Copy Address"
                         >
-                          {isAddrCopied ? (
+                          {justCopiedAddrRowId === p.id ? (
                             <CheckCircleIcon className="w-4 h-4 text-green-400" />
                           ) : (
                             <ClipboardDocumentIcon className="w-4 h-4" />
@@ -166,11 +194,28 @@ export default function LatestPaymentsTable({ payments }: {
                     </div>
                   </td>
 
+                  {/* Amount */}
                   <td className="py-2 px-4">{amountStr}</td>
+
+                  {/* Method */}
                   <td className="py-2 px-4">{p.method}</td>
+
+                  {/* Fee */}
                   <td className="py-2 px-4">{feeStr}</td>
-                  <td className={`py-2 px-4 ${stateClass}`}>
-                    {p.state}
+
+                  {/* State */}
+                  <td className={`py-2 px-4 ${stateClass}`}>{p.state}</td>
+
+                  {/* Actions */}
+                  <td className="py-2 px-4">
+                    {p.state === "sent" && onResumeTx && (
+                      <button
+                        onClick={() => onResumeTx(p.address, p.tx_data)}
+                        className="text-blue-400 hover:text-blue-600"
+                      >
+                        Resume
+                      </button>
+                    )}
                   </td>
                 </tr>
               );

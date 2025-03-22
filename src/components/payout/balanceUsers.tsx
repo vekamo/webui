@@ -138,7 +138,7 @@ export default function BalanceInfo({
           <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
             Min Payout
           </p>
-          <p className="font-semibold">{min_payout}</p>
+          <p className="font-semibold">0.2 MWC</p>
         </div>
       </div>
     </div>

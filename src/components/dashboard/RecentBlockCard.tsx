@@ -80,10 +80,11 @@ export default function RecentBlocksCard({ blocks }: { blocks: LastBlock[] }) {
           <thead className="bg-[#1b1e23] text-gray-400">
             <tr>
               <th className="py-3 px-4 uppercase">Height</th>
-              <th className="py-3 px-4 uppercase">Difficulty</th>
+              
               <th className="py-3 px-4 uppercase">Timestamp</th>
-              <th className="py-3 px-4 uppercase">Reward</th>
               <th className="py-3 px-4 uppercase">Hash</th>
+              <th className="py-3 px-4 uppercase">Reward</th>
+              
               <th className="py-3 px-4 uppercase">Status</th>
             </tr>
           </thead>
@@ -102,14 +103,12 @@ export default function RecentBlocksCard({ blocks }: { blocks: LastBlock[] }) {
                   {/* Height */}
                   <td className="py-2 px-4">{block.height}</td>
                   
+                  
                   {/* Timestamp */}
                   <td className="py-2 px-4">{block.timestamp}</td>
 
-                  {/* Reward */}
-                  <td className="py-2 px-4">{block.reward}</td>
-
-                  {/* Hash + copy button */}
-                  <td className="py-2 px-4">
+                   {/* Hash + copy button */}
+                   <td className="py-2 px-4">
                     {block.hash && block.hash.length > 0 ? (
                       <div className="flex items-center gap-2">
                         <span>{shortHash}</span>
@@ -129,6 +128,11 @@ export default function RecentBlocksCard({ blocks }: { blocks: LastBlock[] }) {
                       "N/A"
                     )}
                   </td>
+
+                  {/* Reward */}
+                  <td className="py-2 px-4">{block.reward}</td>
+
+                 
 
                   {/* Status => green if new, yellow if otherwise */}
                   <td className={`py-2 px-4 ${statusColorClass}`}>

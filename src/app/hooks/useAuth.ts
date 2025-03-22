@@ -1,11 +1,12 @@
-"use client"; // Important! This hook will do client-side fetches & cookie ops
-
+"use client";
 import { useState } from "react";
-import Cookies from "js-cookie"; // or 'universal-cookie'
+import Cookies from "js-cookie";
 import { useAuthContext } from "@/app/context/AuthContext";
-import { API_URL_V2, API_URL} from "@/constants/constants";
+import { API_URL_V2, API_URL } from "@/constants/constants";
+import { useRouter } from "next/navigation";
 
 export function useAuth() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const { setIsLoggedIn } = useAuthContext();
@@ -14,6 +15,7 @@ export function useAuth() {
     try {
       setIsLoading(true);
       setAuthError(null);
+
       const authHeader = "Basic " + btoa(`${username}:${password}`);
 
       const responseV2 = await fetch(`${API_URL_V2}pool/users`, {
@@ -35,22 +37,22 @@ export function useAuth() {
       // Set expiration timestamp (24h from now)
       const expirationTimestamp = Math.floor(Date.now() / 1000 + 86400).toString();
 
-      // Store tokens in cookies (so middleware can read them)
+      // Store tokens in cookies
       Cookies.set("username", username, { expires: 1 });
       Cookies.set("id", id, { expires: 1 });
       Cookies.set("token", token, { expires: 1 });
       Cookies.set("legacyToken", legacyToken, { expires: 1 });
       Cookies.set("expiration", expirationTimestamp, { expires: 1 });
 
-      // Update global auth state immediately
+      // Update global auth state
       setIsLoggedIn(true);
       setIsLoading(false);
-      return { username, id, token, legacyToken, expirationTimestamp };
+      return true;
     } catch (err: any) {
       console.error("Login error:", err);
       setIsLoading(false);
       setAuthError(err.message || "Login failed");
-      return null;
+      return false;
     }
   }
 
@@ -72,16 +74,22 @@ export function useAuth() {
         throw new Error(data.message || "Signup failed");
       }
 
+      // If signup succeeded, auto-login
       if (data.username) {
-        await login(username, password);
+        const didLogin = await login(username, password);
+        if (!didLogin) {
+          // If the auto-login failed for some reason, handle error
+          throw new Error("Auto-login failed after signup");
+        }
       }
+
       setIsLoading(false);
       return true;
     } catch (err: any) {
       console.error("Signup error:", err);
       setIsLoading(false);
       setAuthError(err.message || "Signup failed");
-      return null;
+      return false;
     }
   }
 

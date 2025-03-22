@@ -37,7 +37,7 @@ export function useMWCPool() {
   // "MWC_POOL_LAST_BLOCK_MINED"
   const [lastBlockMined, setLastBlockMined] = useState<number | null>(null);
   // "MWC_POOL_RECENT_BLOCKS"
-  const [recentBlocks, setRecentBlocks] = useState<PoolBlock[]>([]);
+  const [recentPoolBlocks, setRecentPoolBlocks] = useState<PoolBlock[]>([]);
 
   // 1) fetchMWCPoolData
   async function fetchMWCPoolData(latestBlockHeight: number) {
@@ -73,7 +73,7 @@ export function useMWCPool() {
       const resp = await fetch(url);
       if (!resp.ok) return;
       const data = await resp.json();
-      setLastBlockMined(data.timestamp);
+      setLastBlockMined(data);
     } catch (e) {
       console.log("Error in fetchMWCPoolLastBlock:", e);
     }
@@ -87,6 +87,10 @@ export function useMWCPool() {
       const resp = await fetch(url);
       if (!resp.ok) return;
       const data = await resp.json();
+  
+      // Sort by block height descending (newest first)
+      data.sort((a: any, b: any) => b.height - a.height);
+  
       const withEdgeBits = data.map((block: any) => {
         let edge_bits = 31;
         if (minedBlockAlgos?.c31?.includes(block.height)) {
@@ -94,11 +98,13 @@ export function useMWCPool() {
         }
         return { ...block, edge_bits };
       });
-      setRecentBlocks(withEdgeBits);
+  
+      setRecentPoolBlocks(withEdgeBits);
     } catch (e) {
       console.log("Error in fetchMWCPoolRecentBlocks:", e);
     }
   }
+  
 
   // 4) fetchMWCPoolSharesSubmitted
   async function fetchMWCPoolSharesSubmitted(latestBlockHeight: number) {
@@ -179,7 +185,7 @@ export function useMWCPool() {
     blocksMined,
     sharesSubmitted,
     lastBlockMined,
-    recentBlocks,
+    recentPoolBlocks,
 
     // Methods
     fetchMWCPoolData,

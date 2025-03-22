@@ -1,213 +1,186 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
+import { useDataContext } from "@/app/context/DataContext";
+import getC31AvgForHeightRange, {
+  calculateDailyEarningFromGpsRange,
+} from "@/utils/utils";
+import { BLOCK_RANGE } from "@/constants/constants";
 
-import { useAuthContext } from "@/app/context/AuthContext";
-import { useMinerData } from "@/app/hooks/useMinerData";
-import { useNetworkData } from "@/app/hooks/useNetworkData";
-
-// If you have a chart or other components, you can import them, e.g.:
-// import MinerHashRateChart from "@/components/miner/MinerHashRateChart";
+// Components
+import MinerStatsCard from "@/components/miners/MinerInfo";
+import MinerHashRateChart from "@/components/miners/MinerHashRateChart";
+import MinerSharesChart from "@/components/miners/MinerSharesChart";
+import RecentBlocksTable from "@/components/miners/RecentBlock";
 
 export default function MinersPage() {
-  const router = useRouter();
-  const { isLoggedIn } = useAuthContext();
-
-  // States for loading/error
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // Hooks: your custom miner data
   const {
+    isLoading,
+    error,
     minerHistorical,
-    minerShareData,
-    totalSharesSubmitted,
-    rigGpsData,
-    fetchMinerData,
-    fetchMinerShareData,
-    fetchMinerTotalValidShares,
-  } = useMinerData();
-
-  // e.g. if you have a getLatestBlock method
-  const { getLatestBlock } = useNetworkData();
-
-  useEffect(() => {
-    // 1) If user not logged in => push /login
-    if (!isLoggedIn) {
-      router.push("/login");
-      return;
-    }
-
-    // 2) Gather needed cookies
-    const minerId = Cookies.get("id");
-    const legacyToken = Cookies.get("legacyToken");
-    const token = Cookies.get("token");
-
-    if (!minerId || !legacyToken || !token) {
-      setError("Missing auth data in cookies.");
-      return;
-    }
-
-    let intervalId: NodeJS.Timeout | null = null;
-
-    /**
-     * loadMinerData
-     *  - silent = false => show spinner
-     *  - silent = true  => skip spinner (background polling)
-     */
-    async function loadMinerData(silent = false) {
-      try {
-        if (!silent) setIsLoading(true);
-        setError("");
-
-        // For example, you might want the latest block
-        const latestBlock = await getLatestBlock();
-        const height = latestBlock?.height ?? 0;
-        if (height <= 0) {
-          throw new Error("Could not fetch latest block height");
-        }
-
-        // Then fetch your miner data
-        await fetchMinerData(minerId, token, height);
-        await fetchMinerShareData(minerId, token, height);
-        await fetchMinerTotalValidShares(minerId, token);
-      } catch (err: any) {
-        console.error("[loadMinerData error]", err);
-        setError(err.message || "Failed to fetch miner data");
-      } finally {
-        if (!silent) setIsLoading(false);
-      }
-    }
-
-    // 3) Initial load (non-silent => spinner)
-    loadMinerData(false);
-
-    // 4) Continuous poll every 5 seconds
-    intervalId = setInterval(() => {
-      loadMinerData(true); // silent => no spinner
-    }, 5000);
-
-    // 5) Cleanup
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [
-    isLoggedIn,
-    router,
-    getLatestBlock,
-    fetchMinerData,
-    fetchMinerShareData,
-    fetchMinerTotalValidShares,
-  ]);
-
-  // Classes for centering if loading
-  const mainClasses = isLoading ? "flex flex-col items-center justify-center" : "";
+    nextBlockReward,
+    latestBlock,
+    immatureBalance,
+    networkHistorical,
+    poolHistorical,
+    recentPoolBlocks,
+  } = useDataContext();
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
+    <div className="min-h-screen bg-black text-white font-[family-name:var(--font-geist-mono)]">
+      {/* HEADER */}
       <header className="w-full px-6 py-6 bg-black border-b border-white/[.1]">
         <h1 className="text-5xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight">
-          Miner
+          Miners
         </h1>
         <p className="text-gray-400 text-md mt-1">
-          View your real-time mining data, performance stats, and rewards.
+          Real-time overview of your mining performance.
         </p>
       </header>
 
-      <main className={`min-h-[calc(100vh-5rem)] px-8 sm:px-16 pb-16 ${mainClasses}`}>
+      {/* MAIN => same as Dashboard approach */}
+      <main className="min-h-[calc(100vh-5rem)] px-8 sm:px-16 pb-16">
         {error ? (
-          <div className="text-red-500 mt-10">{error}</div>
+          // Center the error
+          <div className="flex flex-col items-center justify-center mt-10 text-red-500">
+            {error}
+          </div>
         ) : isLoading ? (
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-white animate-spin rounded-full h-12 w-12 border-b-4 border-white mb-6" />
-            <p className="text-gray-400">Loading miner data...</p>
+          // Spinner in the absolute center
+          <div className="flex items-center justify-center h-[calc(100vh-5rem)]">
+            <div className="flex flex-col items-center gap-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-white" />
+              <p className="text-gray-400">Loading miner data...</p>
+            </div>
           </div>
         ) : (
-          <div className="mt-10">
-            {/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                e.g. If you wanted to insert a chart here:
-                <MinerHashRateChart minerData={minerHistorical} />
-               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */}
-
-            {/* Historical Table */}
-            <div className="overflow-x-auto">
-              <h2 className="text-xl font-bold mb-2 text-gray-200">
-                Miner Historical (Blocks)
-              </h2>
-              <table className="min-w-full text-left text-sm text-gray-300 border border-white/[.1] rounded-lg">
-                <thead>
-                  <tr className="bg-black/[.15] text-gray-500 uppercase tracking-wide">
-                    <th className="py-2 px-4 border border-white/[.1]">Height</th>
-                    <th className="py-2 px-4 border border-white/[.1]">
-                      Timestamp
-                    </th>
-                    <th className="py-2 px-4 border border-white/[.1]">Valid</th>
-                    <th className="py-2 px-4 border border-white/[.1]">
-                      Invalid
-                    </th>
-                    <th className="py-2 px-4 border border-white/[.1]">Stale</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {minerHistorical.map((block, idx) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-white/[.05] transition-colors"
-                    >
-                      <td className="py-2 px-4 border border-white/[.1]">
-                        {block.height}
-                      </td>
-                      <td className="py-2 px-4 border border-white/[.1]">
-                        {block.timestamp}
-                      </td>
-                      <td className="py-2 px-4 border border-white/[.1]">
-                        {block.valid_shares}
-                      </td>
-                      <td className="py-2 px-4 border border-white/[.1]">
-                        {block.invalid_shares}
-                      </td>
-                      <td className="py-2 px-4 border border-white/[.1]">
-                        {block.stale_shares}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Share Data */}
-            <div className="mt-8">
-              <h2 className="text-xl font-bold text-gray-200">
-                Miner Share Data
-              </h2>
-              <pre className="bg-white/5 text-gray-300 p-3 rounded mt-2 text-sm">
-                {JSON.stringify(minerShareData, null, 2)}
-              </pre>
-            </div>
-
-            {/* Total Shares */}
-            <div className="mt-8">
-              <h2 className="text-xl font-bold text-gray-200">
-                Total Shares Submitted
-              </h2>
-              <p className="text-gray-300 mt-1">
-                {totalSharesSubmitted.toLocaleString()}
-              </p>
-            </div>
-
-            {/* Rig GPS */}
-            <div className="mt-8">
-              <h2 className="text-xl font-bold text-gray-200">Rig GPS Data</h2>
-              <pre className="bg-white/5 text-gray-300 p-3 rounded mt-2 text-sm">
-                {JSON.stringify(rigGpsData, null, 2)}
-              </pre>
-            </div>
+          // Wrap content in consistent spacing container
+          <div className="mt-10 w-full max-w-7xl mx-auto flex flex-col gap-8">
+            <MinersContent
+              minerHistorical={minerHistorical}
+              nextBlockReward={nextBlockReward}
+              latestBlock={latestBlock}
+              immatureBalance={immatureBalance}
+              networkHistorical={networkHistorical}
+              poolHistorical={poolHistorical}
+              recentBlocks={recentPoolBlocks}
+            />
           </div>
         )}
       </main>
     </div>
+  );
+}
+
+/** Subcomponent that does all the final transformation + rendering. */
+function MinersContent({
+  minerHistorical,
+  nextBlockReward,
+  latestBlock,
+  immatureBalance,
+  networkHistorical,
+  poolHistorical,
+  recentBlocks,
+}: {
+  minerHistorical: any[];
+  nextBlockReward: any;
+  latestBlock: any;
+  immatureBalance: number;
+  networkHistorical: any[];
+  poolHistorical: any[];
+  recentBlocks: any[];
+}) {
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // 1) Pre-calc ephemeral stats
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  let dynamicLastGraphRateStr = "0 gps";
+  let dynamic240AvgStr = "0";
+  let dynamic1440AvgStr = "0";
+  let dynamicDailyEarnings = "0";
+
+  if (minerHistorical.length) {
+    const lastBlock = minerHistorical[minerHistorical.length - 1];
+    const c31Entry = lastBlock.gps?.find((g: any) => g.edge_bits === 31);
+    let lastGps = c31Entry?.gps || 0;
+    dynamicLastGraphRateStr = `${lastGps.toFixed(2)} gps`;
+
+    // 240-block avg
+    const fromHeight240 = lastBlock.height - 240;
+    const avg240 = getC31AvgForHeightRange(
+      minerHistorical,
+      fromHeight240,
+      lastBlock.height
+    );
+    dynamic240AvgStr = avg240.toFixed(2);
+
+    // 1440-block avg
+    const fromHeight1440 = lastBlock.height - 1440;
+    const avg1440 = getC31AvgForHeightRange(
+      minerHistorical,
+      fromHeight1440,
+      lastBlock.height
+    );
+    dynamic1440AvgStr = avg1440.toFixed(2);
+  }
+
+  // Daily earnings
+  if (
+    latestBlock?.height &&
+    networkHistorical.length > 0 &&
+    minerHistorical.length > 0
+  ) {
+    const daily = calculateDailyEarningFromGpsRange(
+      networkHistorical,
+      minerHistorical,
+      latestBlock.height - BLOCK_RANGE,
+      latestBlock.height
+    );
+    dynamicDailyEarnings = String(daily);
+  }
+
+  // The last block in minerHistorical
+  const lastBlock = minerHistorical[minerHistorical.length - 1];
+  const lastHeight = lastBlock?.height || 0;
+
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // 2) Render final layout
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  return (
+    <>
+      {/* TOP ROW => MinerStatsCard + HashRate Chart */}
+      <div className="flex flex-col md:flex-row gap-8">
+        <div className="md:w-1/3">
+          <MinerStatsCard
+            currentGraphRate={dynamicLastGraphRateStr}
+            chainHeight={latestBlock?.height}
+            lastNetworkBlock="n/a"
+            miner240BlockAvg={dynamic240AvgStr}
+            miner1440BlockAvg={dynamic1440AvgStr}
+            estimatedShareLast="n/a"
+            estimatedShareNext={nextBlockReward}
+            estimatedDailyEarnings={dynamicDailyEarnings}
+            currentBalance={immatureBalance}
+            immatureBalance={immatureBalance}
+          />
+        </div>
+        <div className="md:w-2/3">
+          <MinerHashRateChart minerData={minerHistorical} />
+        </div>
+      </div>
+
+      {/* Shares Chart */}
+      <MinerSharesChart minerData={minerHistorical} />
+
+      {/* Recently Found Blocks */}
+      <div>
+        <RecentBlocksTable
+          range={40}
+          recentBlocks={recentBlocks}
+          lastHeight={lastHeight}
+          networkData={networkHistorical}
+          mwcPoolData={poolHistorical}
+          minerShareData={minerHistorical}
+        />
+      </div>
+    </>
   );
 }

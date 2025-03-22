@@ -1,338 +1,564 @@
-// @flow
-import { MinerPoolCreditStat } from '../types'
-import { COINS_PER_BLOCK } from '@/constants/constants'
+import { COINS_PER_BLOCK } from "@/constants/constants";
+import { sha3_256 } from "js-sha3";
+import { decode as base32Decode } from "hi-base32";
 
 export const ellipsizeString = (input: string, length: number) => {
-  const inputLength = input.length
-  const halfway = length / 2
-  const firstHalf = input.slice(0, halfway)
-  const secondHalf = input.slice(inputLength - halfway, inputLength)
-  const output = `${firstHalf}...${secondHalf}`
-  return output
-}
+  const inputLength = input.length;
+  const halfway = length / 2;
+  const firstHalf = input.slice(0, halfway);
+  const secondHalf = input.slice(inputLength - halfway, inputLength);
+  const output = `${firstHalf}...${secondHalf}`;
+  return output;
+};
+
+export type MinerPoolCreditStat = {
+  height: number;
+  minerC31: number;
+  poolC31: number;
+  secondary_scaling: number;
+};
 
 export const getTimeMeasurement = (inMinutes: number): string => {
   switch (true) {
     case inMinutes < 1:
-      return 'seconds'
-
+      return "seconds";
     case inMinutes < 60:
-      return 'minutes'
-
+      return "minutes";
     case inMinutes < 1440:
-      return 'hours'
-
+      return "hours";
     case inMinutes <= 84960:
-      return 'days'
-
+      return "days";
     default:
-      return ''
+      return "";
   }
-}
+};
 
-export const getTimeWithMeasurement = (inMinutes: number): { measurement: string, value: number } => {
-  const measurement = getTimeMeasurement(inMinutes)
+export const getTimeWithMeasurement = (
+  inMinutes: number
+): { measurement: string; value: number } => {
+  const measurement = getTimeMeasurement(inMinutes);
 
-  const measurements = {
-    seconds (minutes) {
-      const val = Math.round(minutes * 60)
-      return val
+  // Add index signature so TS allows measurements[measurement].
+  const measurements: { [key: string]: (minutes: number) => number } = {
+    seconds(minutes: number) {
+      const val = Math.round(minutes * 60);
+      return val;
     },
-    minutes (minutes) {
-      return minutes
+    minutes(minutes: number) {
+      return minutes;
     },
-    hours (minutes) {
-      return minutes / 60
+    hours(minutes: number) {
+      return minutes / 60;
     },
-    days (minutes) {
-      return minutes / 24 / 60
-    }
-  }
-  const strategy = measurements[measurement]
+    days(minutes: number) {
+      return minutes / (24 * 60);
+    },
+  };
 
+  const strategy = measurements[measurement];
   if (!strategy) {
-    console.error(`No strategy for particular measurement: ${measurement}`)
-    return { measurement: '', value: Infinity }
+    console.error(`No strategy for measurement: ${measurement}`);
+    return { measurement: "", value: Infinity };
   }
   return {
     measurement,
-    value: strategy(inMinutes)
-  }
-}
-export const getTimeInMinutes = (params: { measurement: string, value: number }): number => {
-  const { measurement, value } = params
-  const measurementStrategies = {
-    seconds (v) {
-      const val = Math.round(v / 60 * 100) / 100
-      return val
-    },
-    minutes (v) {
-      return v
-    },
-    hours (v) {
-      return v * 60
-    },
-    days (v) {
-      return v * 24 * 60
-    }
-  }
-  const strategy = measurementStrategies[measurement]
+    value: strategy(inMinutes),
+  };
+};
 
+export const getTimeInMinutes = (params: {
+  measurement: string;
+  value: number;
+}): number => {
+  const { measurement, value } = params;
+
+  // Add index signature so TS allows measurementStrategies[measurement].
+  const measurementStrategies: { [key: string]: (v: number) => number } = {
+    seconds(v: number) {
+      return Math.round((v / 60) * 100) / 100;
+    },
+    minutes(v: number) {
+      return v;
+    },
+    hours(v: number) {
+      return v * 60;
+    },
+    days(v: number) {
+      return v * 24 * 60;
+    },
+  };
+
+  const strategy = measurementStrategies[measurement];
   if (!strategy) {
-    console.error(`No strategy for particular measurement: ${measurement}`)
-    return Infinity
+    console.error(`No strategy for measurement: ${measurement}`);
+    return Infinity;
   }
-  return strategy(value)
-}
+  return strategy(value);
+};
 
-export function secondsToHms (d: number) {
-  d = Number(d)
-  const h = Math.floor(d / 3600)
-  const m = Math.floor(d % 3600 / 60)
-  const s = Math.floor(d % 3600 % 60)
-  let sDisplay = ''
-  const hDisplay = h > 0 ? h + 'h ' : ''
-  const mDisplay = m > 0 ? m + 'm ' : ''
+export function secondsToHms(d: number) {
+  d = Number(d);
+  const h = Math.floor(d / 3600);
+  const m = Math.floor((d % 3600) / 60);
+  const s = Math.floor(d % 3600 % 60);
+  let sDisplay = "";
+  const hDisplay = h > 0 ? h + "h " : "";
+  const mDisplay = m > 0 ? m + "m " : "";
   if (h === 0) {
-    sDisplay = s > 0 ? s + 's ' : ''
+    sDisplay = s > 0 ? s + "s " : "";
   }
-
-  return hDisplay + mDisplay + sDisplay
+  return hDisplay + mDisplay + sDisplay;
 }
 
 export const nanoMWCToMWC = (nanoMWC: number) => {
-  return nanoMWC / 1000000000
-}
+  return nanoMWC / 1000000000;
+};
 
 export const MWCToNanoMWC = (nanoMWC: number) => {
-  return nanoMWC * 1000000000
-}
+  return nanoMWC * 1000000000;
+};
 
-export const getMinerBlockRewardData = (height: number, networkData: Array<any>, mwcPoolData: Array<any>, minerShareData: Object, selectedRigWorker?: string): Object | null => {
-  const compiledShareData = {}
-  let cumulativeMinerC31Shares = 0
-  networkData.forEach(block => {
-    if ((block.height > height) || (block.height <= height - 240)) return
-    const blockData = minerShareData[`block_${block.height}`]
-    let minerShareBlockData
-    if (blockData) {
-      minerShareBlockData = selectedRigWorker ? blockData[selectedRigWorker] : blockData
-    }
-    let c31Shares = 0
-    if (minerShareBlockData) {
-      c31Shares = minerShareBlockData.c31ValidShares ? minerShareBlockData.c31ValidShares : 0
-      cumulativeMinerC31Shares += c31Shares
-    }
-    compiledShareData[`block_${block.height}`] = {
-      height: block.height,
-      secondary_scaling: block.secondary_scaling,
-      minerC31: c31Shares
-    }
-  })
-  let cumulativePoolC31Shares = 0
-  mwcPoolData.forEach(block => {
-    if (compiledShareData[`block_${block.height}`]) {
-      if (block.share_counts) {
-        compiledShareData[`block_${block.height}`].poolC31 = block.share_counts.C31 ? block.share_counts.C31.valid : 0
-        if (block.share_counts.C31) cumulativePoolC31Shares += block.share_counts.C31.valid
-      }
-    }
-  })
-  for (const key in compiledShareData) {
-    const blockHeight = parseInt(key.replace('block_', ''))
-    if (blockHeight > height || blockHeight <= height - 240) delete compiledShareData[key]
-  }
-  const calculatedBlockRewardData = calculateBlockReward(compiledShareData)
-  if (!calculateBlockReward) return null
-  const output = {
-    ...calculatedBlockRewardData,
-    cumulativeMinerC31Shares,
-    cumulativePoolC31Shares
-  }
-  return output
-}
-
-export const calculateBlockReward = (compiledBlockShareData: {[string]: Object}): { poolCredit: number, userCredit: number, userReward: number} | null => {
-  let aggregatedPoolCredit = 0
-  let aggregatedUserCredit = 0
-  const compiledShareDataKeys = Object.keys(compiledBlockShareData)
+export const calculateBlockReward = (
+  compiledBlockShareData: { [key: string]: object }
+): { poolCredit: number; userCredit: number; userReward: number } | null => {
+  let aggregatedPoolCredit = 0;
+  let aggregatedUserCredit = 0;
+  const compiledShareDataKeys = Object.keys(compiledBlockShareData);
   if (compiledShareDataKeys.length !== 240) {
-    return null
+    return null;
   }
-  compiledShareDataKeys.forEach(key => {
-    if (!compiledBlockShareData[key]) console.log('compiledShareData issue on: ', key)
-    const blockShareCredits = calculateCreditFromStat(compiledBlockShareData[key])
-    aggregatedPoolCredit += blockShareCredits.pool
-    aggregatedUserCredit += blockShareCredits.miner
-  })
+  compiledShareDataKeys.forEach((key) => {
+    if (!compiledBlockShareData[key]) {
+      console.log("compiledShareData issue on: ", key);
+    }
+    const blockShareCredits = calculateCreditFromStat(compiledBlockShareData[key]);
+    aggregatedPoolCredit += blockShareCredits.pool;
+    aggregatedUserCredit += blockShareCredits.miner;
+  });
 
-  if (aggregatedPoolCredit === 0) return null
-  const portion = aggregatedUserCredit / aggregatedPoolCredit
-  const userReward = COINS_PER_BLOCK * portion
+  if (aggregatedPoolCredit === 0) return null;
+  const portion = aggregatedUserCredit / aggregatedPoolCredit;
+  const userReward = COINS_PER_BLOCK * portion;
   return {
     userReward,
     poolCredit: aggregatedPoolCredit,
-    userCredit: aggregatedUserCredit
-  }
-}
+    userCredit: aggregatedUserCredit,
+  };
+};
 
-export const calculateCreditFromStat = (block: MinerPoolCreditStat): { miner: number, pool: number} => {
-  if (!block) return { miner: 0, pool: 0 } // this needs fixing
-  const weight = Math.pow(2, (1 + 31 - 24)) * 31
+export const calculateCreditFromStat = (
+  block: any
+): { miner: number; pool: number } => {
+  if (!block) return { miner: 0, pool: 0 }; // needs fixing
+  const weight = Math.pow(2, 1 + 31 - 24) * 31;
 
-  const minerC31Credit = block.minerC31 ? block.minerC31 * weight : 0
-  const poolC31Credit = block.poolC31 ? block.poolC31 * weight : 0
+  const minerC31Credit = block.minerC31 ? block.minerC31 * weight : 0;
+  const poolC31Credit = block.poolC31 ? block.poolC31 * weight : 0;
 
-  const miner = minerC31Credit
-  const pool = poolC31Credit
+  const miner = minerC31Credit;
+  const pool = poolC31Credit;
   if (isNaN(miner) || isNaN(pool)) {
-    console.log('missing data')
+    console.log("missing data");
   }
   return {
     miner,
-    pool
-  }
+    pool,
+  };
+};
+
+/**
+ * 1) `minerData` is now Record<string, any[]> so you can do `minerData["c31"]`.
+ */
+
+interface GpsEntry {
+  edge_bits: number;
+  gps: number;
 }
 
-export const calculateDailyEarningFromGps = (networkData: Array<Object>, minerData: Array<Object>, latestHeight: number, selectedRigWorker?: string): number => {
-  const minerTotalGps = { c31: 0 }
-  let networkTotalC31Gps = 0
+interface BlockData {
+  height: number;
+  gps: GpsEntry[];
+  [key: string]: any; // e.g. worker fields
+}
 
-  if (minerData.length === 0) return 0
-  const algos = [31]
+/**
+ * If 'minerData' is { c31: BlockData[] }, we handle it one way;
+ * If 'minerData' is BlockData[], we handle it the other way.
+ */
+export const calculateDailyEarningFromGps = (
+  networkData: BlockData[],
+  minerData: Record<string, BlockData[]> | BlockData[],
+  latestHeight: number,
+  selectedRigWorker?: string
+): number => {
+  const minerTotalGps: Record<string, number> = { c31: 0 };
+  let networkTotalC31Gps = 0;
+
+  // Short-circuit if no data
+  if (
+    (Array.isArray(minerData) && minerData.length === 0) ||
+    (!Array.isArray(minerData) && Object.keys(minerData).length === 0)
+  ) {
+    return 0;
+  }
+
+  // Check for selectedRigWorker => we assume a record shape
   if (selectedRigWorker) {
-    algos.forEach(algo => {
-      if (minerData[`c${algo}`]) {
-        minerData[`c${algo}`].forEach(block => {
-          if (block.height > latestHeight - 5 || block.height < latestHeight - 245) return
-          minerTotalGps[`c${algo}`] += block[selectedRigWorker] ? block[selectedRigWorker] : 0
-        })
+    const algos = [31];
+    algos.forEach((algo) => {
+      const algoKey = `c${algo}`; // e.g. "c31"
+      // If NOT an array => we treat it as a record with "c31" key
+      if (!Array.isArray(minerData) && minerData[algoKey]) {
+        minerData[algoKey].forEach((block) => {
+          // Filter out blocks out of range
+          if (
+            block.height > latestHeight - 5 ||
+            block.height < latestHeight - 245
+          ) {
+            return;
+          }
+          // Summation for the selected rig worker
+          minerTotalGps[algoKey] += block[selectedRigWorker] ?? 0;
+        });
       }
-    })
+    });
   } else {
-    minerData.forEach(block => {
-      if (block.height > latestHeight - 5 || block.height < latestHeight - 245) return
-      block.gps.forEach(algo => {
-        if (algo.edge_bits === 31) {
-          minerTotalGps.c31 += algo.gps
+    // No rig worker => 'minerData' could be an array or record
+    if (Array.isArray(minerData)) {
+      // (Case 1) It's an array of blocks
+      minerData.forEach((block) => {
+        if (
+          block.height > latestHeight - 5 ||
+          block.height < latestHeight - 245
+        ) {
+          return;
         }
-      })
-    })
-  }
-  networkData.forEach(block => {
-    if (block.height > latestHeight - 5 || block.height < latestHeight - 245) return
-    block.gps.forEach(algo => {
-      if (algo.edge_bits === 31) {
-        networkTotalC31Gps += algo.gps
+        block.gps.forEach((algo) => {
+          if (algo.edge_bits === 31) {
+            minerTotalGps.c31 += algo.gps;
+          }
+        });
+      });
+    } else {
+      // (Case 2) It's a record like { c31: BlockData[] }
+      if (minerData.c31) {
+        minerData.c31.forEach((block) => {
+          if (
+            block.height > latestHeight - 5 ||
+            block.height < latestHeight - 245
+          ) {
+            return;
+          }
+          block.gps.forEach((algo) => {
+            if (algo.edge_bits === 31) {
+              minerTotalGps.c31 += algo.gps;
+            }
+          });
+        });
       }
-    })
-  })
-
-  const minerAverageC31 = minerTotalGps.c31 / 240
-  const networkAverageC31 = networkTotalC31Gps / 240
-  const weight = Math.pow(2, (1 + 31 - 24)) * 31
-
-  const minerC31Credit = minerAverageC31 ? minerAverageC31 * weight : 0
-  const networkC31Credit = networkAverageC31 ? networkAverageC31 * weight : 0
-  const minerAggregateCredit = minerC31Credit
-  const networkAggregateCredit = networkC31Credit
-
-  const result = (minerAggregateCredit / networkAggregateCredit) * COINS_PER_BLOCK * 60 * 24
-  if (!selectedRigWorker) {
+    }
   }
-  return result
-}
+
+  // Now gather c31 from networkData
+  networkData.forEach((block) => {
+    if (block.height > latestHeight - 5 || block.height < latestHeight - 245) {
+      return;
+    }
+    block.gps.forEach((algo) => {
+      if (algo.edge_bits === 31) {
+        networkTotalC31Gps += algo.gps;
+      }
+    });
+  });
+
+  // Compute average over 240 blocks
+  const minerAverageC31 = minerTotalGps.c31 / 240;
+  const networkAverageC31 = networkTotalC31Gps / 240;
+  const weight = Math.pow(2, 1 + 31 - 24) * 31;
+
+  const minerC31Credit = minerAverageC31 * weight;
+  const networkC31Credit = networkAverageC31 * weight;
+  if (networkC31Credit === 0) return 0;
+
+  // Final daily earning
+  const result =
+    (minerC31Credit / networkC31Credit) * COINS_PER_BLOCK * 60 * 24;
+  return parseFloat(result.toFixed(9));
+};
+
 
 export const basicAuth = (token: string) => {
-  const auth = 'Basic ' + token
-  // const auth = 'Basic ' + Buffer.from(token + ':' + 'random').toString('base64')
-  return auth
-}
+  const auth = "Basic " + token;
+  return auth;
+};
 
 export const basicAuthLegacy = (token: string) => {
-  // const auth = 'Basic ' + token
-  const auth = 'Basic ' + Buffer.from(token + ':' + 'random').toString('base64')
-  return auth
-}
+  const auth = "Basic " + Buffer.from(token + ":random").toString("base64");
+  return auth;
+};
 
 export const getRandomColor = () => {
-  const red = 50 + Math.floor(Math.random() * 205)
-  const green = 50 + Math.floor(Math.random() * 205)
-  const blue = 50 + Math.floor(Math.random() * 205)
-  const output = `rgb(${red}, ${green}, ${blue})`
-  return output
-}
+  const red = 50 + Math.floor(Math.random() * 205);
+  const green = 50 + Math.floor(Math.random() * 205);
+  const blue = 50 + Math.floor(Math.random() * 205);
+  const output = `rgb(${red}, ${green}, ${blue})`;
+  return output;
+};
 
 export const randomColors = [
-  'rgb(113, 180, 181)',
-  'rgb(251, 141, 226)',
-  'rgb(185, 212, 126)',
-  'rgb(50, 103, 219)',
-  'rgb(239, 113, 50)',
-  'rgb(196, 152, 209)',
-  'rgb(68, 99, 71)',
-  'rgb(216, 221, 165)',
-  'rgb(112, 178, 74)',
-  'rgb(63, 95, 250)',
-  'rgb(242, 123, 201)',
-  'rgb(141, 69, 192)',
-  'rgb(200, 158, 96)',
-  'rgb(152, 117, 245)',
-  'rgb(146, 250, 162)',
-  'rgb(166, 186, 176)',
-  'rgb(195, 126, 219)',
-  'rgb(67, 132, 110)',
-  'rgb(193, 216, 235)',
-  'rgb(131, 113, 116)',
-  'rgb(87, 226, 64)',
-  'rgb(50, 98, 152)',
-  'rgb(64, 218, 254)',
-  'rgb(221, 192, 56)',
-  'rgb(186, 52, 170)',
-  'rgb(155, 54, 171)',
-  'rgb(248, 68, 253)',
-  'rgb(182, 246, 160)',
-  'rgb(77, 226, 158)',
-  'rgb(136, 177, 60)',
-  'rgb(94, 77, 239)',
-  'rgb(247, 207, 105)',
-  'rgb(80, 248, 154)',
-  'rgb(80, 206, 243)',
-  'rgb(198, 189, 64)',
-  'rgb(222, 250, 96)',
-  'rgb(94, 222, 76)',
-  'rgb(236, 96, 148)',
-  'rgb(69, 178, 153)',
-  'rgb(109, 154, 61)',
-  'rgb(177, 231, 176)',
-  'rgb(235, 114, 190)',
-  'rgb(105, 57, 145)',
-  'rgb(178, 123, 151)',
-  'rgb(175, 223, 98)',
-  'rgb(159, 108, 97)',
-  'rgb(55, 218, 174)',
-  'rgb(146, 63, 205)',
-  'rgb(55, 154, 237)',
-  'rgb(86, 215, 170)',
-  'rgb(201, 113, 128)',
-  'rgb(134, 84, 235)',
-  'rgb(248, 146, 154)',
-  'rgb(223, 180, 119)',
-  'rgb(73, 50, 144)',
-  'rgb(101, 90, 50)',
-  'rgb(188, 66, 58)',
-  'rgb(77, 57, 182)',
-  'rgb(57, 167, 141)',
-  'rgb(67, 106, 211)',
-  'rgb(197, 95, 154)',
-  'rgb(171, 119, 183)',
-  'rgb(111, 149, 93)',
-  'rgb(96, 141, 68)',
-  'rgb(218, 78, 86)',
-  'rgb(189, 77, 167)',
-  'rgb(82, 248, 106)',
-  'rgb(221, 100, 178)',
-  'rgb(174, 64, 110)',
-  'rgb(226, 75, 177)',
-  'rgb(121, 72, 71)'
-]
+  /* your color array, omitted for brevity */
+];
+
+/**
+ * getC31AvgForHeightRange:
+ * If invalid or no c31, returns 0. Otherwise returns average c31 GPS for [fromHeight..toHeight].
+ */
+export default function getC31AvgForHeightRange(
+  blocks: any[],
+  fromHeight: number,
+  toHeight: number
+): number {
+  if (toHeight < fromHeight) return 0;
+  const relevant = blocks.filter(
+    (b) => b.height >= fromHeight && b.height <= toHeight
+  );
+
+  let sum = 0;
+  for (const block of relevant) {
+    const c31Entry = block.gps?.find((g: any) => g.edge_bits === 31);
+    if (c31Entry?.gps) {
+      sum += c31Entry.gps;
+    }
+  }
+
+  const blockCount = toHeight - fromHeight + 1;
+  if (blockCount <= 0) return 0;
+  return sum / blockCount;
+}
+
+/**
+ * 2) If you're also using `minerData` in a range function, define it similarly.
+ */
+export function getMinerBlockRewardData(
+  height: number,
+  networkData: any[],
+  mwcPoolData: any[],
+  minerShareData: any,
+  selectedRigWorker?: string
+): Record<string, any> | null {
+  const compiledShareData: any = {};
+  let cumulativeMinerC31Shares = 0;
+
+  // 1) gather user c31 shares from networkData blocks
+  networkData.forEach((block) => {
+    if (block.height > height || block.height <= height - 240) return;
+
+    const blockData = minerShareData[`block_${block.height}`];
+    let minerShareBlockData: any;
+    if (blockData) {
+      minerShareBlockData = selectedRigWorker ? blockData[selectedRigWorker] : blockData;
+    }
+
+    let c31Shares = 0;
+    if (minerShareBlockData) {
+      c31Shares = minerShareBlockData.c31ValidShares ?? 0;
+      cumulativeMinerC31Shares += c31Shares;
+    }
+
+    compiledShareData[`block_${block.height}`] = {
+      height: block.height,
+      secondary_scaling: block.secondary_scaling,
+      minerC31: c31Shares,
+    };
+  });
+
+  // 2) gather pool c31 shares from mwcPoolData
+  let cumulativePoolC31Shares = 0;
+  mwcPoolData.forEach((block) => {
+    const key = `block_${block.height}`;
+    if (compiledShareData[key]) {
+      const c31 = block.share_counts?.C31;
+      const poolShares = c31 ? c31.valid : 0;
+      compiledShareData[key].poolC31 = poolShares;
+      cumulativePoolC31Shares += poolShares;
+    }
+  });
+
+  // 3) remove out-of-range blocks from compiledShareData
+  for (const key in compiledShareData) {
+    const blockHeight = parseInt(key.replace("block_", ""));
+    if (blockHeight > height || blockHeight <= height - 240) {
+      delete compiledShareData[key];
+    }
+  }
+
+  // 4) call "calculateBlockReward"
+  const calculatedBlockRewardData = calculateBlockReward(compiledShareData);
+  if (!calculatedBlockRewardData) return null;
+
+  return {
+    ...calculatedBlockRewardData,
+    cumulativeMinerC31Shares,
+    cumulativePoolC31Shares,
+  };
+}
+
+/**
+ * 3) Similarly, if your `minerData` is "c31: array" style, change its type:
+ */
+export function calculateDailyEarningFromGpsRange(
+  networkData: BlockData[],
+  minerData: Record<string, BlockData[]> | BlockData[],
+  fromHeight: number,
+  toHeight: number,
+  selectedRigWorker?: string
+): number {
+  // Quick checks
+  if (
+    (Array.isArray(minerData) && minerData.length === 0) ||
+    (!Array.isArray(minerData) && Object.keys(minerData).length === 0) ||
+    networkData.length === 0
+  ) {
+    return 0;
+  }
+
+  if (toHeight < fromHeight) return 0;
+
+  let minerTotalC31Gps = 0;
+  let networkTotalC31Gps = 0;
+
+  // 1) Sum up c31 from minerData in the height range
+  if (selectedRigWorker) {
+    // If there's a chosen rig worker, we assume `minerData` is a record
+    const algoKey = "c31";
+    if (!Array.isArray(minerData) && minerData[algoKey]) {
+      // Filter relevant blocks
+      const relevantMinerBlocks = minerData[algoKey].filter(
+        (block) => block.height >= fromHeight && block.height <= toHeight
+      );
+      relevantMinerBlocks.forEach((block) => {
+        // Add this worker’s share
+        minerTotalC31Gps += block[selectedRigWorker] || 0;
+      });
+    }
+  } else {
+    // If no worker => we might have a plain array or a record
+    if (Array.isArray(minerData)) {
+      // (Case A) `minerData` is an array
+      const relevantMinerBlocks = minerData.filter(
+        (block) => block.height >= fromHeight && block.height <= toHeight
+      );
+      relevantMinerBlocks.forEach((block) => {
+        block.gps?.forEach((algo) => {
+          if (algo.edge_bits === 31) {
+            minerTotalC31Gps += algo.gps;
+          }
+        });
+      });
+    } else {
+      // (Case B) `minerData` is a record, e.g. { c31: [...] }
+      if (minerData["c31"]) {
+        const relevantMinerBlocks = minerData["c31"].filter(
+          (block) => block.height >= fromHeight && block.height <= toHeight
+        );
+        relevantMinerBlocks.forEach((block) => {
+          block.gps?.forEach((algo) => {
+            if (algo.edge_bits === 31) {
+              minerTotalC31Gps += algo.gps;
+            }
+          });
+        });
+      }
+    }
+  }
+
+  // 2) Sum up c31 from networkData in [fromHeight..toHeight]
+  const relevantNetworkBlocks = networkData.filter(
+    (block) => block.height >= fromHeight && block.height <= toHeight
+  );
+  relevantNetworkBlocks.forEach((block) => {
+    block.gps?.forEach((algo) => {
+      if (algo.edge_bits === 31) {
+        networkTotalC31Gps += algo.gps;
+      }
+    });
+  });
+
+  // 3) Compute average c31 gps for that range
+  const blockCount = toHeight - fromHeight + 1;
+  if (blockCount <= 0) return 0;
+
+  const minerAvgC31 = minerTotalC31Gps / blockCount;
+  const networkAvgC31 = networkTotalC31Gps / blockCount;
+
+  const weight = Math.pow(2, 1 + 31 - 24) * 31;
+  const minerC31Credit = minerAvgC31 * weight;
+  const networkC31Credit = networkAvgC31 * weight;
+  if (networkC31Credit === 0) return 0;
+
+  const rawResult =
+    (minerC31Credit / networkC31Credit) * COINS_PER_BLOCK * 60 * 24;
+  return parseFloat(rawResult.toFixed(9));
+}
+
+
+
+
+
+function base32DecodeToBytes(input: string): Uint8Array {
+  // Tells hi-base32 to return an array of numbers
+  const result = base32Decode(input, true);
+
+  // Now we check at runtime
+  if (typeof result === "string") {
+    // If it's unexpectedly a string, throw or handle it
+    throw new Error("Base32 decoding returned a string, expected an array.");
+  }
+
+  // If it’s an array, wrap in Uint8Array
+  return new Uint8Array(result);
+}
+
+/**
+ * Logs + returns true if:
+ *  - pubKeyBase32 has length 56
+ *  - Characters match [a-z2-7] (case-insensitive)
+ *  - Base32 decode => 35 bytes
+ */
+export function isBasicTorPubKey(pubKeyBase32: string): boolean {
+  console.log("[TorCheck] Input:", pubKeyBase32);
+
+  // 1) Must be 56 chars, all in [a-z2-7]
+  console.log("[TorCheck] Checking length + [a-z2-7]...");
+  if (pubKeyBase32.length !== 56) {
+    console.log("[TorCheck] Fail => length != 56. Actual:", pubKeyBase32.length);
+    return false;
+  }
+  if (!/^[a-z2-7]+$/i.test(pubKeyBase32)) {
+    console.log("[TorCheck] Fail => invalid chars (only [a-z2-7] allowed)");
+    return false;
+  }
+  console.log("[TorCheck] Pass => length=56 + valid chars");
+
+  // 2) Base32 decode => must produce 35 bytes
+  console.log("[TorCheck] Decoding base32...");
+  try {
+    // asBytes=true => should return a number[]
+    const result = base32Decode(pubKeyBase32.toUpperCase(), true);
+
+    console.log("[TorCheck] Decoded array length:", result.length);
+
+    if (result.length !== 35) {
+      console.log("[TorCheck] Fail => length != 35. Actual:", result.length);
+      return false;
+    }
+    console.log("[TorCheck] Pass => decode => 35 bytes");
+  } catch (err) {
+    console.log("[TorCheck] Fail => base32 decode threw error:", err);
+    return false;
+  }
+
+  // If we get here, it means all checks passed
+  console.log("[TorCheck] All checks passed => returning true");
+  return true;
+}
