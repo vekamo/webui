@@ -6,44 +6,82 @@ import Cookies from "js-cookie";
 import { useAuth } from "@/app/hooks/useAuth";
 import Link from "next/link";
 
+const waitForToken = async () => {
+  return new Promise<void>((resolve) => {
+    const interval = setInterval(() => {
+      if (Cookies.get("token")) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, 50);
+  });
+};
+
 export default function LoginPage() {
+  const router = useRouter();
+  // Form state
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [authCheckDone, setAuthCheckDone] = useState(false);
-  const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
 
-  const router = useRouter();
-  const nextUrl = "/miners"; // fixed redirect target
+  // We’ll store the ?next= path here
+  const [nextUrl, setNextUrl] = useState("/miners");
+  // Track if we've finished our "check if already logged in" step
+  const [authCheckDone, setAuthCheckDone] = useState(false);
+
+  // Next.js 13's router for client navigation
+  
+
+  // Custom auth hook
   const { login, authError, isLoading } = useAuth();
 
-  // Check for an existing token on mount
+  // 1) On mount, check if user has a token -> if so, they're already logged in
+  // 2) Parse the ?next= param from the URL
   useEffect(() => {
     const token = Cookies.get("token");
-    setAlreadyLoggedIn(!!token);
+    // If token exists, we are (likely) already logged in
+    if (token) {
+      // We'll redirect below once we've set nextUrl
+    }
+
+    // Parse the next param
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const nextParam = params.get("next") || "/miners";
+      setNextUrl(nextParam);
+    }
+
     setAuthCheckDone(true);
   }, []);
 
+  // 3) If user is already logged in, skip the form and go directly
+  //    But only do this AFTER we've read the next param
+  useEffect(() => {
+    if (!authCheckDone) return;
+
+    const token = Cookies.get("token");
+    if (token) {
+      // Force server-side re-check (if using middleware) and navigate
+      router.push(nextUrl);
+      // If you still need a server re-check, you can do:
+      // router.refresh();
+    }
+  }, [authCheckDone, nextUrl, router]);
+
+  // 4) Form submission -> call login API
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const success = await login(username, password);
+    console.log('isSuccess', success);
     if (success) {
-      router.push(nextUrl);
+      // Navigate to the originally intended page
+      setTimeout(() => {
+        router.push(nextUrl);
+      }, 300);
+      //window.location.href = nextUrl
     }
   }
 
-  if (!authCheckDone) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
-        <p>Checking authentication...</p>
-      </div>
-    );
-  }
-
-  if (alreadyLoggedIn) {
-    router.push(nextUrl);
-    return null;
-  }
-
+  // If there's no token, render the login form
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-8 sm:px-16 bg-black text-white">
       <h1 className="text-5xl font-extrabold mb-4">Sign In</h1>
@@ -59,7 +97,9 @@ export default function LoginPage() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 bg-black border border-white/[.1] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="w-full px-4 py-2 bg-black border border-white/[.1] 
+                         rounded-md text-white focus:outline-none 
+                         focus:ring-2 focus:ring-white/50"
               required
             />
           </div>
@@ -70,7 +110,9 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 bg-black border border-white/[.1] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="w-full px-4 py-2 bg-black border border-white/[.1] 
+                         rounded-md text-white focus:outline-none 
+                         focus:ring-2 focus:ring-white/50"
               required
             />
           </div>
@@ -80,7 +122,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-4 bg-white text-black font-medium py-2 rounded-md hover:bg-gray-300 transition"
+            className="w-full mt-4 bg-white text-black font-medium py-2 
+                       rounded-md hover:bg-gray-300 transition"
           >
             {isLoading ? "Please wait..." : "Sign In"}
           </button>
@@ -88,7 +131,7 @@ export default function LoginPage() {
       </form>
 
       <p className="text-gray-500 text-sm mt-4">
-        Don&apos;t have an account?{" "}
+        Don&apos;t have an account?
         <Link href="/signup" className="ml-1 text-white hover:underline">
           Sign Up
         </Link>

@@ -1,24 +1,21 @@
 "use client";
+
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useDataContext } from "@/app/context/DataContext";
 import Cookies from "js-cookie";
 import BalanceInfo, { BalanceDetails } from "@/components/payout/balanceUsers";
 import PayoutSetupCard from "@/components/payout/payoutCard";
-import LatestPaymentsTable, { LatestPaymentItem } from "@/components/payout/latestPaymentCard";
+import LatestPaymentsTable, {
+  LatestPaymentItem,
+} from "@/components/payout/latestPaymentCard";
 
 export default function PayoutPage() {
-  const router = useRouter();
+  // Now we can use all React client features: useState, useContext, etc.
+  const { isLoading, error, minerPaymentData, latestMinerPayments, immatureBalance } =
+    useDataContext();
 
-  const {
-    isLoading,
-    error,
-    // other data from context
-    minerPaymentData,
-    latestMinerPayments,
-    immatureBalance,
-  } = useDataContext();
-
+  // If you need username on client side:
+  // const username = Cookies.get("username") || "User";
 
   // Local states
   const [payoutAddress, setPayoutAddress] = useState("");
@@ -46,7 +43,7 @@ export default function PayoutPage() {
           my-0
         "
       />
-      
+
       {/* MAIN => same approach as your Dashboard */}
       <main className="min-h-[calc(100vh-5rem)] px-8 sm:px-16 pb-16">
         {error ? (

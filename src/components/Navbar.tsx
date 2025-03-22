@@ -9,15 +9,14 @@ import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
 
 export default function Navbar() {
   const router = useRouter();
-
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   const { isLoggedIn, setIsLoggedIn } = useAuthContext();
-
   const navRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // If you click outside the nav, close the mobile menu
     function handleClickOutside(event: MouseEvent) {
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
@@ -41,8 +40,12 @@ export default function Navbar() {
     Cookies.remove("token", { path: "/" });
     Cookies.remove("legacyToken", { path: "/" });
     Cookies.remove("expiration");
+
     setIsLoggedIn(false);
-    router.push("/login");
+    router.refresh();
+    setTimeout(() => {
+      router.push("/login");
+    }, 300);
   }
 
   const rawUsername = Cookies.get("username") || "User";
@@ -51,8 +54,19 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Navbar */}
-      
+      {/* 
+        1) Keep the <hr> you originally had, EXACTLY as you wrote it:
+      */}
+      <hr
+        className="
+          w-full h-px border-0
+          bg-gradient-to-r
+          from-transparent via-gray-700 to-transparent
+          my-0
+        "
+      />
+
+      {/* 2) NAVBAR */}
       <nav
         ref={navRef}
         className="
@@ -82,14 +96,16 @@ export default function Navbar() {
           {mounted && isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2
-                         px-5 py-2
-                         border border-red-500 text-red-500
-                         bg-black rounded-full
-                         hover:bg-red-500 hover:text-black
-                         transition-colors duration-200
-                         focus:outline-none focus:ring-2 focus:ring-red-400
-                         cursor-pointer"
+              className="
+                flex items-center gap-2
+                px-5 py-2
+                border border-red-500 text-red-500
+                bg-black rounded-full
+                hover:bg-red-500 hover:text-black
+                transition-colors duration-200
+                focus:outline-none focus:ring-2 focus:ring-red-400
+                cursor-pointer
+              "
             >
               <ArrowRightOnRectangleIcon className="w-5 h-5" />
               <span>{displayUsername}</span>
@@ -97,9 +113,11 @@ export default function Navbar() {
           ) : (
             <Link
               href="/login"
-              className="rounded-full border border-white/[.1] px-5 py-2
-                         hover:bg-white/[.1] transition
-                         cursor-pointer"
+              className="
+                rounded-full border border-white/[.1] px-5 py-2
+                hover:bg-white/[.1] transition
+                cursor-pointer
+              "
             >
               Login
             </Link>
@@ -111,15 +129,17 @@ export default function Navbar() {
           {mounted && isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2
-                         px-4 py-2
-                         border border-red-500 text-red-500
-                         bg-black rounded-full
-                         hover:bg-red-500 hover:text-black
-                         transition-colors duration-200
-                         focus:outline-none focus:ring-2 focus:ring-red-400
-                         text-base font-medium
-                         cursor-pointer"
+              className="
+                flex items-center gap-2
+                px-4 py-2
+                border border-red-500 text-red-500
+                bg-black rounded-full
+                hover:bg-red-500 hover:text-black
+                transition-colors duration-200
+                focus:outline-none focus:ring-2 focus:ring-red-400
+                text-base font-medium
+                cursor-pointer
+              "
             >
               <ArrowRightOnRectangleIcon className="w-5 h-5" />
               <span>{displayUsername}</span>
@@ -127,10 +147,12 @@ export default function Navbar() {
           ) : (
             <Link
               href="/login"
-              className="rounded-full border border-white/[.1]
-                         px-4 py-2 text-base
-                         hover:bg-white/[.1] transition
-                         cursor-pointer"
+              className="
+                rounded-full border border-white/[.1]
+                px-4 py-2 text-base
+                hover:bg-white/[.1] transition
+                cursor-pointer
+              "
             >
               Login
             </Link>
@@ -172,109 +194,123 @@ export default function Navbar() {
             )}
           </button>
         </div>
-
-        {/* Mobile Navigation (Burger Dropdown Menu) */}
-        {menuOpen && (
-          <div
-            className="
-              absolute top-full left-0 w-full
-              bg-gray-900
-              border-t border-white/20
-              sm:hidden flex flex-col items-center
-              rounded-b shadow-lg z-50
-              pt-4 pb-4
-            "
-          >
-            {/* We use a narrower container so the lines don't span the entire width. */}
-            <div className="w-11/12 max-w-md flex flex-col items-center">
-              <Link
-                href="/dashboard"
-                onClick={() => setMenuOpen(false)}
-                className="
-                  block w-full px-5 py-3 text-center
-                  text-white hover:text-gray-300
-                  transition
-                "
-              >
-                Dashboard
-              </Link>
-              <hr
-                className="
-                  w-full h-px border-0 
-                  bg-gradient-to-r 
-                  from-transparent via-gray-600 to-transparent
-                  my-4
-                "
-              />
-
-              <Link
-                href="/miners"
-                onClick={() => setMenuOpen(false)}
-                className="
-                  block w-full px-5 py-3 text-center
-                  text-white hover:text-gray-300
-                  transition
-                "
-              >
-                Miners
-              </Link>
-              <hr
-                className="
-                  w-full h-px border-0 
-                  bg-gradient-to-r 
-                  from-transparent via-gray-600 to-transparent
-                  my-4
-                "
-              />
-
-              <Link
-                href="/payout"
-                onClick={() => setMenuOpen(false)}
-                className="
-                  block w-full px-5 py-3 text-center
-                  text-white hover:text-gray-300
-                  transition
-                "
-              >
-                Payout
-              </Link>
-              <hr
-                className="
-                  w-full h-px border-0 
-                  bg-gradient-to-r 
-                  from-transparent via-gray-600 to-transparent
-                  my-4
-                "
-              />
-
-              <Link
-                href="/faq"
-                onClick={() => setMenuOpen(false)}
-                className="
-                  block w-full px-5 py-3 text-center
-                  text-white hover:text-gray-300
-                  transition
-                "
-              >
-                FAQ
-              </Link>
-            </div>
-          </div>
-        )}
       </nav>
 
       {/* 
-        Faded line below the Navbar (between the navbar and the page).
-        Adjust margins (my-4), gradient colors, etc., as desired.
+        MOBILE NAVIGATION (Burger Dropdown Menu) 
+        with a black background to match the navbar:
       */}
+      <div
+        className={`
+          sm:hidden flex flex-col items-center
+          absolute top-[72px] left-0 w-full
+          bg-black 
+          rounded-b shadow-lg z-100
+          pt-1 pb-0
+          transition-all duration-500 ease-in-out
+          overflow-hidden
+          ${menuOpen ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"}
+        `}
+      >
+        <div className="w-11/12 max-w-md flex flex-col items-center">
+          <hr
+            className="
+              w-full h-px border-0 
+              bg-gradient-to-r 
+              from-transparent via-gray-600 to-transparent
+              my-4
+            "
+          />
+          <Link
+            href="/dashboard"
+            onClick={() => setMenuOpen(false)}
+            className="
+              block w-full px-5 py-3 text-center
+              text-white hover:text-gray-300
+              transition
+            "
+          >
+            Dashboard
+          </Link>
+          <hr
+            className="
+              w-full h-px border-0 
+              bg-gradient-to-r 
+              from-transparent via-gray-600 to-transparent
+              my-4
+            "
+          />
+
+          <Link
+            href="/miners"
+            onClick={() => setMenuOpen(false)}
+            className="
+              block w-full px-5 py-3 text-center
+              text-white hover:text-gray-300
+              transition
+            "
+          >
+            Miners
+          </Link>
+          <hr
+            className="
+              w-full h-px border-0 
+              bg-gradient-to-r 
+              from-transparent via-gray-600 to-transparent
+              my-4
+            "
+          />
+
+          <Link
+            href="/payout"
+            onClick={() => setMenuOpen(false)}
+            className="
+              block w-full px-5 py-3 text-center
+              text-white hover:text-gray-300
+              transition
+            "
+          >
+            Payout
+          </Link>
+          <hr
+            className="
+              w-full h-px border-0 
+              bg-gradient-to-r 
+              from-transparent via-gray-600 to-transparent
+              my-4
+            "
+          />
+
+          <Link
+            href="/faq"
+            onClick={() => setMenuOpen(false)}
+            className="
+              block w-full px-5 py-3 text-center
+              text-white hover:text-gray-300
+              transition
+            "
+          >
+            FAQ
+          </Link>
+          <hr
+        className="
+          w-full h-px border-0
+          bg-gradient-to-r
+          from-transparent via-gray-700 to-transparent
+          my-0
+        "
+      />
+        </div>
+        
+      </div>
       <hr
-  className="
-    w-full h-px border-0
-    bg-gradient-to-r
-    from-transparent via-gray-700 to-transparent
-    my-0
-  "
-/>
+        className="
+          w-full h-px border-0
+          bg-gradient-to-r
+          from-transparent via-gray-700 to-transparent
+          my-0
+        "
+      />
     </>
   );
 }

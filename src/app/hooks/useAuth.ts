@@ -43,7 +43,7 @@ export function useAuth() {
       Cookies.set("token", token, { expires: 1 });
       Cookies.set("legacyToken", legacyToken, { expires: 1 });
       Cookies.set("expiration", expirationTimestamp, { expires: 1 });
-
+      router.refresh()
       // Update global auth state
       setIsLoggedIn(true);
       setIsLoading(false);
@@ -99,6 +99,7 @@ export function useAuth() {
     Cookies.remove("token");
     Cookies.remove("legacyToken");
     Cookies.remove("expiration");
+    router.refresh()
     setIsLoggedIn(false);
   }
 

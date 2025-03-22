@@ -284,14 +284,12 @@ export default function MinerSharesChart({
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <h2 className="text-2xl font-extrabold text-white">
-          Miner Shares (Valid, Reject, Stale)
+          Miner Shares
         </h2>
       </div>
 
       <p className="text-sm text-gray-400">
-        {smooth
-          ? `Rolling Avg (window = ${windowSize}) for each line with gradient`
-          : "Raw data, no smoothing"}
+        Miners shares by type (valid, rejected, stale) to gauge performance.
       </p>
 
       <div className="w-full h-64 mt-2">

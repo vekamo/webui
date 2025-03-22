@@ -269,14 +269,12 @@ export default function MinerHashRateChart({
       {/* Header / Title */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <h2 className="text-2xl font-extrabold text-white">
-          Miner Hash Rate (c31)
+          Miner Graphrate
         </h2>
       </div>
 
       <p className="text-sm text-gray-400">
-        {smooth
-          ? `Rolling Avg (window = ${windowSize}) with gradient lines`
-          : "Raw data, no smoothing"}
+        Miner's graphrate over time to track performance and ensure consistent mining
       </p>
 
       {/* Chart Container */}

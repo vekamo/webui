@@ -278,14 +278,12 @@ export default function PoolNetworkHashRateChart({
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <h2 className="text-2xl font-extrabold text-white">
-          Network vs. Pool Hash Rate
+          Network vs. Pool GraphRate
         </h2>
       </div>
 
       <p className="text-sm text-gray-400">
-        {smooth
-          ? `Rolling Avg (window = ${windowSize}) with gradient lines`
-          : "Raw data, no smoothing"}
+      Compares the total network hashrate with our pool's graphrate
       </p>
 
       <div className="w-full h-64 mt-2">

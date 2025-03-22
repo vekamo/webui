@@ -1,45 +1,39 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Paths that require a token to access
+// These paths require a token
 const PROTECTED_PATHS = ["/miners", "/rigs", "/payout"];
 
 export function middleware(request: NextRequest) {
+
+  // Grab info from the NextRequest
   const url = request.nextUrl;
   const { pathname, search } = url;
 
-  // 1) If the path is NOT in PROTECTED_PATHS => allow
+  // 1) Check if the requested path is protected
   const isProtected = PROTECTED_PATHS.some((protectedPath) =>
     pathname.startsWith(protectedPath)
   );
   if (!isProtected) {
+    // Not a protected route => allow
     return NextResponse.next();
   }
 
-  // 2) Check for 'token' cookie
+  // 2) Get the token from cookies
   const token = request.cookies.get("token")?.value;
-
-  // 3) If no token => redirect to /login with "?next=/requested-path"
+  // 3) If no token => redirect to /login?next=<original-path>
   if (!token) {
-    // Combine pathname + any existing query string:
-    const fromPath = pathname + search;
-
-    // Build the login URL on the same origin
-    const loginUrl = new URL("/login", url.origin);
+    const fromPath = pathname + search; // e.g. "/miners" or "/payout?foo=bar"
+    const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", fromPath);
-
     return NextResponse.redirect(loginUrl);
   }
 
-  // 4) Otherwise => allow the request
+  // 4) Otherwise => user has a token; allow the request
   return NextResponse.next();
 }
 
 // Only match these routes
 export const config = {
-  matcher: [
-    "/miners/:path*",
-    "/rigs/:path*",
-    "/payout/:path*",
-  ],
+  matcher: ["/miners/:path*", "/rigs/:path*", "/payout/:path*"],
 };
