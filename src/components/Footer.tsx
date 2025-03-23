@@ -12,8 +12,8 @@ export default function Footer() {
         <Link className="hover:text-white transition" href="/api">
           API
         </Link>
-        <Link className="hover:text-white transition" href="/faq">
-          FAQ
+        <Link className="hover:text-white transition" href="/guide">
+          Guide
         </Link>
         <Link className="hover:text-white transition" href="/terms">
           Terms of Service
