@@ -18,6 +18,7 @@ import {
   TooltipItem,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { MinerBlockShare } from "@/types/types";
 
 // Register Chart.js + Filler
 ChartJS.register(TimeScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);

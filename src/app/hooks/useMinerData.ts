@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { API_URL, API_URL_V2, BLOCK_RANGE } from "@/constants/constants";
 import { basicAuth, basicAuthLegacy } from "@/utils/utils";
-import { LatestMinerPaymentData, MinerBlock, MinerPaymentData, MinerShareData } from "@/types/types";
+import { LatestMinerPaymentData, MinerBlock, MinerPaymentData, MinerShareData, RigDataMiner } from "@/types/types";
 
 
 
@@ -70,20 +70,6 @@ export function useMinerData() {
     } catch (e) {
       console.log("fetchMinerDataHook error:", e);
     }
-  }
-
-  // --------------- fetchRigData ---------------
-  interface RigDataMiner {
-    [blockHeight: number]: {
-      [rigName: string]: {
-        [workerId: string]: {
-          [algo: string]: {
-            accepted?: number;
-            rejected?: number;
-          };
-        };
-      };
-    };
   }
   
   async function fetchRigDataHook(

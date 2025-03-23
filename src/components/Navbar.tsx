@@ -12,7 +12,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const { isLoggedIn, setIsLoggedIn } = useAuthContext();
+  const { isLoggedIn, setIsLoggedIn, handleLogout } = useAuthContext();
   const navRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,21 +34,7 @@ export default function Navbar() {
     setIsLoggedIn(!!token);
   }, [setIsLoggedIn]);
 
-  function handleLogout() {
-    Cookies.remove("username");
-    Cookies.remove("id");
-    Cookies.remove("token", { path: "/" });
-    Cookies.remove("legacyToken", { path: "/" });
-    Cookies.remove("expiration");
-
-    setIsLoggedIn(false);
-    
-    setTimeout(() => {
-      router.refresh();
-      router.push("/login");
-    }, 300);
-    router.refresh();
-  }
+  
 
   const rawUsername = Cookies.get("username") || "User";
   const displayUsername =
@@ -95,8 +81,8 @@ export default function Navbar() {
           <Link href="/payout" className="hover:text-gray-400 transition">
             Payout
           </Link>
-          <Link href="/faq" className="hover:text-gray-400 transition">
-            FAQ
+          <Link href="/guide" className="hover:text-gray-400 transition">
+            Guide
           </Link>
           {mounted && isLoggedIn ? (
             <button
@@ -298,7 +284,7 @@ export default function Navbar() {
           />
 
           <Link
-            href="/faq"
+            href="/guide"
             onClick={() => setMenuOpen(false)}
             className="
               block w-full px-5 py-3 text-center
@@ -306,7 +292,7 @@ export default function Navbar() {
               transition
             "
           >
-            FAQ
+            Guide
           </Link>
           <hr
         className="

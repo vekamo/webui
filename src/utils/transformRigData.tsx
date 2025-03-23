@@ -1,5 +1,5 @@
 // src/utils/transformRigData.ts
-import { BlocksByHeight, GpsEntry, RigBlock } from "@/types/types";
+import { BlocksByHeight, GpsEntry, RigBlocks, RigBlockData } from "@/types/types";
 
 /**
  * transformRigData:
@@ -10,7 +10,7 @@ import { BlocksByHeight, GpsEntry, RigBlock } from "@/types/types";
 export function transformRigData(
   rigDataMiner: Record<number, any>,
   blocksByHeight: BlocksByHeight
-): Record<string, RigBlock[]> {
+): Record<string, RigBlockData[]> {
   // 1) Intersection of heights
   const minerHeights = Object.keys(rigDataMiner).map((h) => parseInt(h, 10));
   const commonHeights = minerHeights.filter((h) => blocksByHeight[h] != null);
@@ -27,7 +27,7 @@ export function transformRigData(
   const allRigNames = Array.from(rigNamesSet);
 
   // 3) Output structure
-  const multiRig: Record<string, RigBlock[]> = {};
+  const multiRig: Record<string, RigBlockData[]> = {};
 
   // 4) For each block (except first), compute c31Gps from previous block's timestamp
   for (let i = 1; i < commonHeights.length; i++) {
@@ -68,7 +68,7 @@ export function transformRigData(
       const c31Gps = (totalValid * 42) / periodDuration;
       const gpsEntry: GpsEntry = { gps: c31Gps, edge_bits: 31 };
 
-      const rigBlock: RigBlockData = {
+      const blockData: RigBlockData = {
         id: 0,
         timestamp: currentBlock.timestamp,
         height,
@@ -81,12 +81,13 @@ export function transformRigData(
       if (!multiRig[rigName]) {
         multiRig[rigName] = [];
       }
-      multiRig[rigName].push(rigBlock);
+      multiRig[rigName].push(blockData);
     }
   }
 
   return multiRig;
 }
+
 
 
 export function sumShares(rigBlockData: Record<string, any>): { accepted: number, rejected: number, stale: number, total: number } {

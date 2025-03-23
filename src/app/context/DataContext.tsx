@@ -1,5 +1,3 @@
-// DataContext.tsx
-
 "use client"; // Because we use React hooks in a Next.js 13 App Router
 
 import React, { createContext, useContext, useState, useEffect } from "react";
@@ -34,22 +32,23 @@ interface DataContextType {
   latestMinerPayments: any;
   immatureBalance: number;
   rigHistorical: any;
-  //rigHistorical: any;
 
   // Manual refresh
   refetchAllData: () => void;
 }
 
+
 // Create React Context
 const DataContext = createContext<DataContextType>({} as DataContextType);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { isLoggedIn } = useAuthContext();
+  // Pull in isLoggedIn + handleLogout from AuthContext
+  const { isLoggedIn, handleLogout } = useAuthContext();
 
   // Only true on the first load => shows spinner
   const [isLoading, setIsLoading] = useState(true);
   const [didInitialLoad, setDidInitialLoad] = useState(false);
-  
+
   // Error state
   const [error, setError] = useState("");
 
@@ -89,7 +88,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     fetchMinerPaymentData,
     fetchLatestMinerPayments,
     fetchMinerImmatureBalance,
-    resetMinerData, // <-- we’ll use this
+    resetMinerData,
   } = useMinerData();
 
   /**
@@ -125,7 +124,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         } else {
           await fetchMinerData(minerId, token, height);
           await fetchMinerShareData(minerId, token, height);
-          
+
           await fetchMinerNextBlockReward(minerId, legacyToken);
           await fetchMinerLatestBlockReward(minerId, legacyToken, height);
           await fetchMinerPaymentData(minerId, legacyToken);
@@ -136,7 +135,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         // If we’re not logged in, optionally reset the data here
-        // (Though we also handle below in a separate effect)
         // resetMinerData();
       }
     } catch (err: any) {
@@ -161,10 +159,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * 3) Poll every 25 seconds => silent refresh
+   *    => But first check if 'expiration' cookie is expired
    */
   useEffect(() => {
     console.log("[DataProvider] Setting up 25s poll");
     const intervalId = setInterval(() => {
+      const expiration = Cookies.get("expiration");
+      if (expiration) {
+        // Convert "expiration" to a number (UNIX timestamp in seconds)
+        const expirationTS = parseInt(expiration, 10);
+        const now = Math.floor(Date.now() / 1000);
+
+        // If current time > expiration => auto logout
+        if (now > expirationTS) {
+          console.warn("[DataProvider] Expiration cookie is expired => auto logout");
+          handleLogout();
+          return; // Don't fetch data if we just logged out
+        }
+      }
+
+      // Otherwise, do the normal data fetch
       console.log("[DataProvider] poll => fetchAllData(false)");
       fetchAllData(false);
     }, 25000);

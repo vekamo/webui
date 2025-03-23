@@ -30,18 +30,7 @@ export interface MinerBlockHashrate {
   id: number;
   timestamp: number;
   height: number;
-  valid_shares: number;
-  invalid_shares: number;
-  stale_shares?: number;
-  total_valid_shares?: number;
-  total_invalid_shares?: number;
-  total_stale_shares?: number;
-  dirty?: number;
-  user_id?: number;
   gps: GpsEntry[];
-  mwc_stats_id?: number | null;
-  pool_stats_id?: number | null;
-  worker_stats_id?: number;
 }
 
 
@@ -110,15 +99,6 @@ export interface BlockInfo {
   secondary_scaling: number;
 }
 
-export interface WorkerAlgoData {
-  accepted: number;
-}
-
-export interface WorkerData {
-  [worker: string]: {
-    [algo: string]: WorkerAlgoData;
-  };
-}
 
 export interface RigData {
   [rig: string]: WorkerData;
@@ -133,33 +113,6 @@ export interface RigGpsDataEntry {
   secondary_scaling: number;
   Total: number;
   [workerKey: string]: number | string; // c31 or c32, etc.
-}
-/**
- * Maps a block height (as a string) to a rig block.
- */
-export interface RigDataMiner {
-  [blockHeight: string]: RigBlock;
-}
-
-/**
- * Maps a rig name to a worker map.
- */
-export interface RigBlock {
-  [rigName: string]: WorkerMap;
-}
-
-/**
- * Maps a worker ID to an algo map.
- */
-export interface WorkerMap {
-  [workerId: string]: AlgoMap;
-}
-
-/**
- * Maps an algo identifier (e.g. "31") to its stats.
- */
-export interface AlgoMap {
-  [algo: string]: AlgoStats;
 }
 
 /**
@@ -227,3 +180,59 @@ export type MinerPoolCreditStat = {
   poolC31: number;
   secondary_scaling: number;
 };
+
+
+// Basic GPS shape
+export interface GpsEntry {
+  gps: number;
+  edge_bits: number;
+}
+
+
+export interface RigDataMiner {
+  [blockHeight: number]: {
+    [rigName: string]: {
+      [workerId: string]: {
+        [algo: string]: {
+          accepted?: number;
+          rejected?: number;
+        };
+      };
+    };
+  };
+}
+
+
+// A RigBlock maps rig names to their data at a given block height
+export interface RigBlocks {
+  [rigName: string]: RigBlockData[];
+}
+
+// The flattened shape you want to produce for each block's data
+export interface RigBlockData {
+  id: number;
+  timestamp: number;
+  height: number;
+  valid_shares: number;
+  invalid_shares: number;
+  stale_shares: number;
+  gps: GpsEntry[];
+}
+
+// Basic GPS shape for the data
+export interface GpsEntry {
+  gps: number;
+  edge_bits: number;
+}
+
+// The worker data could still be deeply nested, but it's now cleaner to manage
+export interface WorkerData {
+  [workerId: string]: WorkerAlgoData;
+}
+
+export interface WorkerAlgoData {
+  accepted: number;
+  stale: number;
+  rejected: number;
+}
+

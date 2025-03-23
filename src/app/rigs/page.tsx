@@ -20,7 +20,7 @@ import RigInfoCard from "@/components/rigs/RigCardInfo";
 
 // Types + transform
 import { transformRigData, sumShares } from "@/utils/transformRigData";
-import { BlocksByHeight, MinerBlock, MinerBlockHashrate, MinerBlockShare, NetworkBlock } from "@/types/types";
+import { BlocksByHeight, MinerBlockHashrate, MinerBlockShare, NetworkBlock } from "@/types/types";
 
 /** Build a dictionary of { height => { timestamp, ... } } from the network. */
 function buildBlocksByHeight(networkHistorical: NetworkBlock[]): BlocksByHeight {
@@ -83,6 +83,7 @@ export default function RigsPage() {
       const avg1440 = getLastNBlocksAvgC31Gps(rigBlocks, 288);
       dynamic1440AvgStr = avg1440.toFixed(2);
 
+      console.log('rigBlocks', rigBlocks)
       if (chainHeight && networkHistorical.length > 0) {
         const daily = calculateDailyEarningFromGpsRange(
           networkHistorical,
@@ -92,8 +93,8 @@ export default function RigsPage() {
         );
         dynamicDailyEarnings = String(daily);
       }
-
-      const chartDataHash: MinerBlockHashrate[] = rigBlocks.map((rb) => ({
+      
+      const chartDataHash = rigBlocks.map((rb) => ({
         id: rb.id,
         timestamp: rb.timestamp,
         height: rb.height,
@@ -101,17 +102,23 @@ export default function RigsPage() {
         invalid_shares: rb.invalid_shares,
         stale_shares: rb.stale_shares,
         gps: rb.gps,
-        name: rigName,
+        // plus any optional fields or defaults
+        user_id: 0,
+        dirty: 0,
+        total_valid_shares: 0,
+        total_invalid_shares: 0,
+        total_stale_shares: 0,
+        mwc_stats_id: null,
+        pool_stats_id: null,
+        worker_stats_id: 0
       }));
 
-      const chartDataShares: MinerBlockShare[] = rigBlocks.map((rb) => ({
-        id: rb.id,
+      const chartDataShares = rigBlocks.map((rb) => ({
         timestamp: rb.timestamp,
         height: rb.height,
         valid_shares: rb.valid_shares,
         invalid_shares: rb.invalid_shares,
         stale_shares: rb.stale_shares,
-        gps: rb.gps,
         name: rigName,
       }));
 

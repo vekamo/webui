@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import "../app/globals.css";
 import { AuthProvider } from "@/app/context/AuthContext";
 import { DataProvider } from "./context/DataContext";
-import AuthExpirationHandler from "@/components/AuthExpirationHandler";
 
 /**
  * 1) We import Geist + Geist_Mono with 'variable' fields 
@@ -56,7 +55,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="bg-black text-white">
         <AuthProvider>
-          <AuthExpirationHandler />
           <DataProvider>
             <Navbar />
             {children}

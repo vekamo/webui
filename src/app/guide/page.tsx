@@ -34,7 +34,7 @@ const faqs = [
   },
 ];
 
-export default function FAQ() {
+export default function Guide() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
@@ -47,6 +47,39 @@ export default function FAQ() {
         Find answers to common questions about MWC mining.
       </p>
 
+      {/* Stratum Information */}
+      <h2 className="text-3xl font-bold mt-10">Stratum Info</h2>
+      <div className="w-full max-w-3xl mt-4 overflow-x-auto">
+        <table className="w-full table-auto text-left border-collapse">
+          <thead>
+            <tr>
+              <th className="border-b border-gray-700 p-3">Region</th>
+              <th className="border-b border-gray-700 p-3">Difficulty</th>
+              <th className="border-b border-gray-700 p-3">SSL</th>
+              <th className="border-b border-gray-700 p-3">Stratum</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="border-b border-gray-700 p-3">USA</td>
+              <td className="border-b border-gray-700 p-3">8</td>
+              <td className="border-b border-gray-700 p-3">No</td>
+              <td className="border-b border-gray-700 p-3">
+                stratum+tcp://stratum2.mwcpool.com:2222
+              </td>
+            </tr>
+            <tr>
+              <td className="border-b border-gray-700 p-3">USA</td>
+              <td className="border-b border-gray-700 p-3">32</td>
+              <td className="border-b border-gray-700 p-3">No</td>
+              <td className="border-b border-gray-700 p-3">
+                stratum+tcp://stratum1.mwcpool.com:3333
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
       {/* FAQ List */}
       <div className="w-full max-w-3xl mt-6 space-y-4">
         {faqs.map((faq, index) => (
@@ -69,6 +102,8 @@ export default function FAQ() {
           </div>
         ))}
       </div>
+
+      
     </div>
   );
 }
