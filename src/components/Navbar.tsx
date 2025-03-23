@@ -243,6 +243,16 @@ export default function Navbar() {
           >
             Miners
           </Link>
+
+          <hr
+            className="
+              w-full h-px border-0 
+              bg-gradient-to-r 
+              from-transparent via-gray-600 to-transparent
+              my-4
+            "
+          />
+          
           <Link
             href="/rigs"
             onClick={() => setMenuOpen(false)}
