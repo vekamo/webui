@@ -23,13 +23,7 @@ import { Line } from "react-chartjs-2";
 ChartJS.register(TimeScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 /** 1) Domain type from your API: "MinerBlock" data points */
-interface MinerBlock {
-  timestamp: number;    // in seconds
-  height: number;
-  valid_shares: number;
-  invalid_shares: number; // or "reject" shares
-  stale_shares: number;
-}
+
 
 /** 2) The exact shape for Chart.js data points */
 interface SharesPoint {
@@ -70,7 +64,7 @@ function applyRollingAverage(
 }
 
 interface Props {
-  minerData: MinerBlock[];
+  minerData: MinerBlockShare[];
   smooth?: boolean;
   windowSize?: number;
 }

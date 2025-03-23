@@ -3,56 +3,16 @@
 import { useState } from "react";
 import { API_URL, API_URL_V2, BLOCK_RANGE } from "@/constants/constants";
 import { basicAuth, basicAuthLegacy } from "@/utils/utils";
+import { LatestMinerPaymentData, MinerBlock, MinerPaymentData, MinerShareData } from "@/types/types";
 
-interface MinerBlock {
-  id: number;
-  timestamp: number;
-  height: number;
-  valid_shares: number;
-  invalid_shares: number;
-  stale_shares: number;
-  total_valid_shares: number;
-  total_invalid_shares: number;
-  total_stale_shares: number;
-  dirty: number;
-  user_id: number;
-  gps: Array<{
-    edge_bits: number;
-    gps: number;
-  }>;
-  mwc_stats_id: number | null;
-  pool_stats_id: number | null;
-  worker_stats_id: number;
-}
 
-interface RigGpsData {
-  c31: any[]; // adapt as needed
-}
-
-interface RigShareData {
-  [blockKey: string]: any;
-}
-
-interface MinerShareData {
-  [blockKey: string]: any;
-}
-
-interface MinerPaymentData {
-  [key: string]: any;
-}
-
-interface LatestMinerPaymentData {
-  [key: string]: any;
-}
 
 export function useMinerData() {
   // ------------------------------------------------------------------
   // 1) States
   // ------------------------------------------------------------------
   const [minerHistorical, setMinerHistorical] = useState<MinerBlock[]>([]);
-  const [rigGpsData, setRigGpsData] = useState<RigGpsData>({ c31: [] });
-  const [rigShareData, setRigShareData] = useState<RigShareData>({});
-  const [rigWorkers, setRigWorkers] = useState<string[]>([]);
+  const [rigHistorical, setRigHistorical] = useState<RigDataMiner>({});
   const [minerShareData, setMinerShareData] = useState<MinerShareData>({});
   const [minerPaymentData, setMinerPaymentData] = useState<MinerPaymentData>({});
   const [totalSharesSubmitted, setTotalSharesSubmitted] = useState<number>(0);
@@ -113,110 +73,82 @@ export function useMinerData() {
   }
 
   // --------------- fetchRigData ---------------
+  interface RigDataMiner {
+    [blockHeight: number]: {
+      [rigName: string]: {
+        [workerId: string]: {
+          [algo: string]: {
+            accepted?: number;
+            rejected?: number;
+          };
+        };
+      };
+    };
+  }
+  
   async function fetchRigDataHook(
-    id: string,
+    minerId: string,
     token: string,
-    blocksByHeight: Record<string | number, any>,
+    blockRange: number,
     latestBlockHeight: number
   ) {
     try {
       if (!latestBlockHeight) return;
-
-      let prevMaxBlockHeight = latestBlockHeight - BLOCK_RANGE;
-      rigGpsData.c31.forEach((block: any) => {
-        if (block.height > prevMaxBlockHeight) {
-          prevMaxBlockHeight = block.height;
-        }
-      });
-
-      const basicAuthString = basicAuth(token);
-      const url = `${API_URL_V2}worker/rigs/${id}/${latestBlockHeight},${BLOCK_RANGE}`;
-      const resp = await fetch(url, {
-        headers: { Authorization: basicAuthString },
-      });
+  
+      // 1) Build request URL
+      const authHeader = basicAuth(token);
+      const url = `${API_URL_V2}worker/rigs/${minerId}/${latestBlockHeight},${blockRange}`;
+      const resp = await fetch(url, { headers: { Authorization: authHeader } });
       if (!resp.ok) return;
-
-      const newRigData = await resp.json();
-
-      const formattedNewRigGpsData: RigGpsData = { c31: [] };
-      const updatedRigShareData = { ...rigShareData };
-      const updatedRigWorkers = [...rigWorkers];
-
-      let previousBlockData = { c31: {} };
-
-      for (const blockHeightKey in newRigData) {
-        const blockHeight = parseInt(blockHeightKey, 10);
-        // We assume we skip if the block is not in `blocksByHeight` or too early
-        if (!blocksByHeight[blockHeight - 5]) continue;
-
-        const previousPeriodTimestamp = blocksByHeight[blockHeight - 5].timestamp;
-        const periodDuration = blocksByHeight[blockHeight].timestamp - previousPeriodTimestamp;
-
-        const blockShareData: any = {
-          height: blockHeight,
-          Total: { c31ValidShares: 0 },
-        };
-
-        const blockTemplate = {
-          height: blockHeight,
-          timestamp: blocksByHeight[blockHeight].timestamp,
-          difficulty: blocksByHeight[blockHeight].difficulty,
-          secondary_scaling: blocksByHeight[blockHeight].secondary_scaling,
-        };
-
-        const block = { c31: { ...blockTemplate, Total: 0 } };
-
-        // rigs
-        for (const rig in newRigData[blockHeightKey]) {
-          // workers
-          for (const worker in newRigData[blockHeightKey][rig]) {
-            const rigWorkerKey = `${rig}-${worker}`;
-            blockShareData[rigWorkerKey] = { c31ValidShares: 0 };
-            if (!updatedRigWorkers.includes(rigWorkerKey)) {
-              updatedRigWorkers.push(rigWorkerKey);
-            }
-
-            for (const algo in newRigData[blockHeightKey][rig][worker]) {
-              const numberShares = newRigData[blockHeightKey][rig][worker][algo].accepted;
-              blockShareData[rigWorkerKey][`c${algo}ValidShares`] = numberShares;
-              blockShareData["Total"][`c${algo}ValidShares`] += numberShares;
-
-              const previousBlockGps = (previousBlockData as any)[`c${algo}`]?.[rigWorkerKey];
-              const currentPeriodGps = (numberShares * 42) / periodDuration;
-
-              const blockTyped = block as Record<string, any>;
-
-              if (!previousBlockGps) {
-                blockTyped[`c${algo}`] = blockTyped[`c${algo}`] || {};
-                blockTyped[`c${algo}`][rigWorkerKey] = currentPeriodGps;
-                blockTyped[`c${algo}`]["Total"] =
-                  (blockTyped[`c${algo}`]["Total"] || 0) + currentPeriodGps;
-              } else {
-                const smoothed = (currentPeriodGps + previousBlockGps) / 2;
-                blockTyped[`c${algo}`] = blockTyped[`c${algo}`] || {};
-                blockTyped[`c${algo}`][rigWorkerKey] = smoothed;
-                blockTyped[`c${algo}`]["Total"] =
-                  (blockTyped[`c${algo}`]["Total"] || 0) + smoothed;
-              }
-            }
-          }
-        }
-
-        formattedNewRigGpsData.c31.push(block.c31);
-        previousBlockData = { c31: block.c31 };
-        updatedRigShareData[`block_${blockHeight}`] = blockShareData;
+  
+      // 2) Parse JSON into RigDataMiner
+      const newRigData = (await resp.json()) as RigDataMiner;
+  
+      // 3) Convert existing state (rigHistorical) to an array of { height, data }
+      //    so we can merge and deduplicate easily.
+      const oldEntries = Object.entries(rigHistorical).map(([heightStr, data]) => ({
+        height: parseInt(heightStr, 10),
+        data,
+      }));
+  
+      // Convert newRigData into the same array form
+      const newEntries = Object.entries(newRigData).map(([heightStr, data]) => ({
+        height: parseInt(heightStr, 10),
+        data,
+      }));
+  
+      // 4) Merge into a single array
+      const merged = [...oldEntries, ...newEntries];
+  
+      // 5) Use a Map keyed by `height` to remove any duplicates
+      const blockMap = new Map<number, typeof merged[0]>();
+      for (const entry of merged) {
+        blockMap.set(entry.height, entry);
       }
-
-      setRigGpsData((old) => {
-        const mergedC31 = [...old.c31, ...formattedNewRigGpsData.c31];
-        return { c31: mergedC31 };
-      });
-      setRigShareData(updatedRigShareData);
-      setRigWorkers(updatedRigWorkers);
+  
+      // 6) Convert the Map back to an array and sort by height (ascending)
+      let unique = Array.from(blockMap.values());
+      unique.sort((a, b) => a.height - b.height);
+  
+      // 7) Keep only the last `blockRange` entries
+      const numToRemove = unique.length - blockRange;
+      if (numToRemove > 0) {
+        unique = unique.slice(numToRemove);
+      }
+  
+      // 8) Convert back to an object keyed by height
+      const finalObj: RigDataMiner = {};
+      for (const item of unique) {
+        finalObj[item.height] = item.data;
+      }
+      // 9) Update state
+      setRigHistorical(finalObj);
     } catch (e) {
       console.log("fetchRigDataHook error:", e);
     }
   }
+  
+  
 
   // --------------- fetchMinerShareData ---------------
   async function fetchMinerShareDataHook(id: string, token: string, latestBlockHeight: number) {
@@ -439,9 +371,6 @@ export function useMinerData() {
   // ------------------------------------------------------------------
   function resetMinerData() {
     setMinerHistorical([]);
-    setRigGpsData({ c31: [] });
-    setRigShareData({});
-    setRigWorkers([]);
     setMinerShareData({});
     setMinerPaymentData({});
     setTotalSharesSubmitted(0);
@@ -464,9 +393,6 @@ export function useMinerData() {
   return {
     // States
     minerHistorical,
-    rigGpsData,
-    rigShareData,
-    rigWorkers,
     minerShareData,
     minerPaymentData,
     totalSharesSubmitted,
@@ -480,6 +406,7 @@ export function useMinerData() {
     manualPaymentError,
     isPaymentSettingProcessing,
     manualPaymentSubmission,
+    rigHistorical,
 
     // Fetch methods
     fetchMinerData: fetchMinerDataHook,

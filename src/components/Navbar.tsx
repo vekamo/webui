@@ -89,6 +89,9 @@ export default function Navbar() {
           <Link href="/miners" className="hover:text-gray-400 transition">
             Miners
           </Link>
+          <Link href="/rigs" className="hover:text-gray-400 transition">
+            Rigs
+          </Link>
           <Link href="/payout" className="hover:text-gray-400 transition">
             Payout
           </Link>
@@ -253,6 +256,17 @@ export default function Navbar() {
             "
           >
             Miners
+          </Link>
+          <Link
+            href="/rigs"
+            onClick={() => setMenuOpen(false)}
+            className="
+              block w-full px-5 py-3 text-center
+              text-white hover:text-gray-300
+              transition
+            "
+          >
+            Rigs
           </Link>
           <hr
             className="

@@ -1,6 +1,7 @@
 import { COINS_PER_BLOCK } from "@/constants/constants";
 import { sha3_256 } from "js-sha3";
 import { decode as base32Decode } from "hi-base32";
+import { BlockData } from "@/types/types";
 
 export const ellipsizeString = (input: string, length: number) => {
   const inputLength = input.length;
@@ -11,12 +12,6 @@ export const ellipsizeString = (input: string, length: number) => {
   return output;
 };
 
-export type MinerPoolCreditStat = {
-  height: number;
-  minerC31: number;
-  poolC31: number;
-  secondary_scaling: number;
-};
 
 export const getTimeMeasurement = (inMinutes: number): string => {
   switch (true) {
@@ -170,16 +165,7 @@ export const calculateCreditFromStat = (
  * 1) `minerData` is now Record<string, any[]> so you can do `minerData["c31"]`.
  */
 
-interface GpsEntry {
-  edge_bits: number;
-  gps: number;
-}
 
-interface BlockData {
-  height: number;
-  gps: GpsEntry[];
-  [key: string]: any; // e.g. worker fields
-}
 
 /**
  * If 'minerData' is { c31: BlockData[] }, we handle it one way;
@@ -233,7 +219,7 @@ export const calculateDailyEarningFromGps = (
         ) {
           return;
         }
-        block.gps.forEach((algo) => {
+        block.gps?.forEach((algo) => {
           if (algo.edge_bits === 31) {
             minerTotalGps.c31 += algo.gps;
           }
@@ -249,7 +235,7 @@ export const calculateDailyEarningFromGps = (
           ) {
             return;
           }
-          block.gps.forEach((algo) => {
+          block.gps?.forEach((algo) => {
             if (algo.edge_bits === 31) {
               minerTotalGps.c31 += algo.gps;
             }
@@ -264,7 +250,7 @@ export const calculateDailyEarningFromGps = (
     if (block.height > latestHeight - 5 || block.height < latestHeight - 245) {
       return;
     }
-    block.gps.forEach((algo) => {
+    block.gps?.forEach((algo) => {
       if (algo.edge_bits === 31) {
         networkTotalC31Gps += algo.gps;
       }
@@ -561,4 +547,25 @@ export function isBasicTorPubKey(pubKeyBase32: string): boolean {
   // If we get here, it means all checks passed
   console.log("[TorCheck] All checks passed => returning true");
   return true;
+}
+
+
+
+export function getLastNBlocksAvgC31Gps(rigBlocks: any[], n: number): number {
+  const sliceStart = Math.max(0, rigBlocks.length - n);
+  const lastN = rigBlocks.slice(sliceStart);
+
+  let sumGps = 0;
+  let count = 0;
+
+  for (const block of lastN) {
+    // c31 entry => block.gps might be array with { edge_bits: 31, gps: number }
+    const c31Entry = block.gps?.find((g: any) => g.edge_bits === 31);
+    if (c31Entry) {
+      sumGps += c31Entry.gps;
+      count++;
+    }
+  }
+
+  return count > 0 ? sumGps / count : 0;
 }

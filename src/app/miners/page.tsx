@@ -3,6 +3,7 @@
 import { useDataContext } from "@/app/context/DataContext";
 import getC31AvgForHeightRange, {
   calculateDailyEarningFromGpsRange,
+  getLastNBlocksAvgC31Gps,
 } from "@/utils/utils";
 import { BLOCK_RANGE } from "@/constants/constants";
 
@@ -26,16 +27,17 @@ export default function MinersPage() {
   } = useDataContext();
 
   return (
+
     <div className="min-h-screen bg-black text-white font-[family-name:var(--font-geist-mono)]">
-      {/* HEADER */}
-      <header className="w-full px-6 py-6 bg-black">
-        <h1 className="text-5xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight">
-          Miners
-        </h1>
-        <p className="text-gray-400 text-md mt-1">
-          Real-time overview of your mining performance.
-        </p>
-      </header>
+    {/* HEADER */}
+    <header className="w-full px-6 py-6 bg-black">
+      <h1 className="text-5xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight">
+      Miners
+      </h1>
+      <p className="text-gray-400 text-md mt-1">
+      Real-time overview of your mining performance.
+      </p>
+    </header>
 
       <hr
         className="
@@ -46,15 +48,13 @@ export default function MinersPage() {
         "
       />
 
-      {/* MAIN => same as Dashboard approach */}
+      {/* MAIN CONTENT */}
       <main className="min-h-[calc(100vh-5rem)] px-8 sm:px-16 pb-16">
         {error ? (
-          // Center the error
           <div className="flex flex-col items-center justify-center mt-10 text-red-500">
             {error}
           </div>
         ) : isLoading ? (
-          // Spinner in the absolute center
           <div className="flex items-center justify-center h-[calc(100vh-5rem)]">
             <div className="flex flex-col items-center gap-4">
               <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-white" />
@@ -62,7 +62,6 @@ export default function MinersPage() {
             </div>
           </div>
         ) : (
-          // Wrap content in consistent spacing container
           <div className="mt-10 w-full max-w-7xl mx-auto flex flex-col gap-8">
             <MinersContent
               minerHistorical={minerHistorical}
@@ -105,28 +104,30 @@ function MinersContent({
   let dynamic240AvgStr = "0";
   let dynamic1440AvgStr = "0";
   let dynamicDailyEarnings = "0";
+  let lastHeight = 0;
 
   if (minerHistorical.length) {
-    const lastBlock = minerHistorical[minerHistorical.length - 1];
-    const c31Entry = lastBlock.gps?.find((g: any) => g.edge_bits === 31);
-    let lastGps = c31Entry?.gps || 0;
-    dynamicLastGraphRateStr = `${lastGps.toFixed(2)} gps`;
+    // (a) "Last 10 blocks" average
+    const avgGps20 = getLastNBlocksAvgC31Gps(minerHistorical, 20)
+    dynamicLastGraphRateStr = `${avgGps20.toFixed(2)} gps`;
 
-    // 240-block avg
-    const fromHeight240 = lastBlock.height - 240;
+    // (b) 240-block avg
+    const lastBlock = minerHistorical[minerHistorical.length - 1];
+    lastHeight = lastBlock.height;
+    const fromHeight240 = lastHeight - 240;
     const avg240 = getC31AvgForHeightRange(
       minerHistorical,
       fromHeight240,
-      lastBlock.height
+      lastHeight
     );
     dynamic240AvgStr = avg240.toFixed(2);
 
-    // 1440-block avg
-    const fromHeight1440 = lastBlock.height - 1440;
+    // (c) 1440-block avg
+    const fromHeight1440 = lastHeight - 1440;
     const avg1440 = getC31AvgForHeightRange(
       minerHistorical,
       fromHeight1440,
-      lastBlock.height
+      lastHeight
     );
     dynamic1440AvgStr = avg1440.toFixed(2);
   }
@@ -145,10 +146,6 @@ function MinersContent({
     );
     dynamicDailyEarnings = String(daily);
   }
-
-  // The last block in minerHistorical
-  const lastBlock = minerHistorical[minerHistorical.length - 1];
-  const lastHeight = lastBlock?.height || 0;
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // 2) Render final layout

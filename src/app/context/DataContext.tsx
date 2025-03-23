@@ -12,6 +12,7 @@ import { useMWCPool } from "@/app/hooks/useMWCPool";
 
 // Private data hook
 import { useMinerData } from "@/app/hooks/useMinerData";
+import { BLOCK_RANGE } from "@/constants/constants";
 
 interface DataContextType {
   isLoading: boolean;
@@ -32,6 +33,8 @@ interface DataContextType {
   minerPaymentData: any;
   latestMinerPayments: any;
   immatureBalance: number;
+  rigHistorical: any;
+  //rigHistorical: any;
 
   // Manual refresh
   refetchAllData: () => void;
@@ -46,7 +49,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Only true on the first load => shows spinner
   const [isLoading, setIsLoading] = useState(true);
   const [didInitialLoad, setDidInitialLoad] = useState(false);
-
+  
   // Error state
   const [error, setError] = useState("");
 
@@ -76,9 +79,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     minerPaymentData,
     latestMinerPayments,
     immatureBalance,
+    rigHistorical,
     fetchMinerData,
     fetchMinerShareData,
     fetchMinerTotalValidShares,
+    fetchRigData,
     fetchMinerNextBlockReward,
     fetchMinerLatestBlockReward,
     fetchMinerPaymentData,
@@ -126,6 +131,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           await fetchMinerPaymentData(minerId, legacyToken);
           await fetchLatestMinerPayments(minerId, token);
           await fetchMinerImmatureBalance(minerId, legacyToken);
+          await fetchRigData(minerId, token, BLOCK_RANGE, height);
           //await fetchMinerTotalValidShares(minerId, token);
         }
       } else {
@@ -215,6 +221,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     minerPaymentData,
     latestMinerPayments,
     immatureBalance,
+    rigHistorical,
 
     // Manual refresh
     refetchAllData,

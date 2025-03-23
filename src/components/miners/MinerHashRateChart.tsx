@@ -17,6 +17,7 @@ import {
   TooltipItem,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { MinerBlockHashrate } from "@/types/types";
 
 // Register Chart.js components, including Filler for gradients
 ChartJS.register(
@@ -30,27 +31,9 @@ ChartJS.register(
   Filler
 );
 
+
 // 1) Domain type from your API
-interface MinerBlock {
-  id: number;
-  timestamp: number;
-  height: number;
-  valid_shares: number;
-  invalid_shares: number;
-  stale_shares: number;
-  total_valid_shares: number;
-  total_invalid_shares: number;
-  total_stale_shares: number;
-  dirty: number;
-  user_id: number;
-  gps: Array<{
-    edge_bits: number;
-    gps: number;
-  }>;
-  mwc_stats_id: number | null;
-  pool_stats_id: number | null;
-  worker_stats_id: number;
-}
+
 
 // 2) The type shape for the final points we pass to Chart.js
 interface MinerChartPoint {
@@ -92,7 +75,7 @@ function applyRollingAverage(
 
 // 4) Props for your chart
 interface Props {
-  minerData: MinerBlock[];
+  minerData: MinerBlockHashrate[];
   smooth?: boolean;
   windowSize?: number;
 }
