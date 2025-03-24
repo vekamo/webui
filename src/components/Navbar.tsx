@@ -252,7 +252,7 @@ export default function Navbar() {
               my-4
             "
           />
-          
+
           <Link
             href="/rigs"
             onClick={() => setMenuOpen(false)}

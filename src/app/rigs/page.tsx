@@ -7,7 +7,7 @@ import { useDataContext } from "@/app/context/DataContext";
 import { BLOCK_RANGE } from "@/constants/constants";
 import {
   calculateDailyEarningFromGpsRange,
-  getLastNBlocksAvgC31Gps
+  getLastNBlocksAvgC31Gps,
 } from "@/utils/utils";
 
 // Shared components
@@ -20,7 +20,12 @@ import RigInfoCard from "@/components/rigs/RigCardInfo";
 
 // Types + transform
 import { transformRigData, sumShares } from "@/utils/transformRigData";
-import { BlocksByHeight, MinerBlockHashrate, MinerBlockShare, NetworkBlock } from "@/types/types";
+import {
+  BlocksByHeight,
+  MinerBlockHashrate,
+  MinerBlockShare,
+  NetworkBlock,
+} from "@/types/types";
 
 /** Build a dictionary of { height => { timestamp, ... } } from the network. */
 function buildBlocksByHeight(networkHistorical: NetworkBlock[]): BlocksByHeight {
@@ -48,30 +53,37 @@ export default function RigsPage() {
     nextBlockReward,
   } = useDataContext();
 
+  // Which rig we have selected
   const [selectedRig, setSelectedRig] = useState<string>("default");
 
-  // Calculate rig names and map once all data is available
+  // Data structures for ephemeral info
   const [ephemeralMap, setEphemeralMap] = useState<Record<string, any>>({});
   const [rigNames, setRigNames] = useState<string[]>([]);
   const [rigGpsMap, setRigGpsMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    // Build network info in a usable format
     const blocksByHeight = buildBlocksByHeight(networkHistorical);
+    // Transform rig data to multiRigData => { rigName: [blockStats, ...], ... }
     const multiRigData = transformRigData(rigHistorical, blocksByHeight);
 
+    // Current chain height
     const chainHeight = latestBlock?.height || 0;
 
     const newEphemeralMap: Record<string, any> = {};
     const newRigGpsMap: Record<string, number> = {};
 
-    // Process all rigs
+    // Populate ephemeralMap for each rig
     for (const [rigName, rigBlocks] of Object.entries(multiRigData)) {
+      // If this rig has no block stats, skip
       if (!rigBlocks.length) continue;
+
       let dynamicLastGraphRateStr = "0";
       let dynamic240AvgStr = "0";
       let dynamic1440AvgStr = "0";
       let dynamicDailyEarnings = "0";
 
+      // Example calculations
       const sumSharesVal = sumShares(rigBlocks);
       const lastGpsValue = getLastNBlocksAvgC31Gps(rigBlocks, 10);
       dynamicLastGraphRateStr = `${lastGpsValue.toFixed(2)}`;
@@ -83,8 +95,8 @@ export default function RigsPage() {
       const avg1440 = getLastNBlocksAvgC31Gps(rigBlocks, 288);
       dynamic1440AvgStr = avg1440.toFixed(2);
 
-      console.log('rigBlocks', rigBlocks)
       if (chainHeight && networkHistorical.length > 0) {
+        // Daily earnings estimate
         const daily = calculateDailyEarningFromGpsRange(
           networkHistorical,
           rigBlocks,
@@ -93,7 +105,8 @@ export default function RigsPage() {
         );
         dynamicDailyEarnings = String(daily);
       }
-      
+
+      // Prepare chart data
       const chartDataHash = rigBlocks.map((rb) => ({
         id: rb.id,
         timestamp: rb.timestamp,
@@ -102,15 +115,6 @@ export default function RigsPage() {
         invalid_shares: rb.invalid_shares,
         stale_shares: rb.stale_shares,
         gps: rb.gps,
-        // plus any optional fields or defaults
-        user_id: 0,
-        dirty: 0,
-        total_valid_shares: 0,
-        total_invalid_shares: 0,
-        total_stale_shares: 0,
-        mwc_stats_id: null,
-        pool_stats_id: null,
-        worker_stats_id: 0
       }));
 
       const chartDataShares = rigBlocks.map((rb) => ({
@@ -134,21 +138,25 @@ export default function RigsPage() {
       };
     }
 
+    // Once built, store them to state
     setEphemeralMap(newEphemeralMap);
-    setRigNames(Object.keys(newEphemeralMap).sort());
+    // Also store rigNames in sorted order
+    const newRigNames = Object.keys(newEphemeralMap).sort();
+    setRigNames(newRigNames);
     setRigGpsMap(newRigGpsMap);
   }, [rigHistorical, networkHistorical, latestBlock]);
 
   useEffect(() => {
-    // Set selectedRig to the first available rig if it is still "default"
+    // If we're still 'default' but we have actual rig names, pick the first
     if (rigNames.length > 0 && selectedRig === "default") {
       setSelectedRig(rigNames[0]);
     }
   }, [rigNames, selectedRig]);
 
+  // ---- RENDER ----
   return (
     <div className="min-h-screen bg-black text-white font-[family-name:var(--font-geist-mono)]">
-      {/* HEADER (always visible) */}
+      {/* HEADER */}
       <header className="w-full px-6 py-6 bg-black">
         <h1 className="text-5xl font-extrabold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tight">
           Rigs
@@ -160,14 +168,14 @@ export default function RigsPage() {
 
       <hr className="w-full h-px border-0 bg-gradient-to-r from-transparent via-gray-700 to-transparent my-0" />
 
-      {/* MAIN AREA */}
       <main className="min-h-[calc(100vh-5rem)] px-8 sm:px-16 pb-16">
+        {/* 1. If we have an error, show it. */}
         {error ? (
           <div className="flex flex-col items-center justify-center mt-10 text-red-500">
             {error}
           </div>
-        ) : isLoading || !rigNames.length ? (
-          // LOADING SPINNER
+        ) : /* 2. If loading or we have no rigs, show a spinner. */
+        isLoading || !rigNames.length ? (
           <div className="flex items-center justify-center h-[calc(100vh-5rem)]">
             <div className="flex flex-col items-center gap-4">
               <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-white" />
@@ -175,61 +183,72 @@ export default function RigsPage() {
             </div>
           </div>
         ) : (
-          // LOADED CONTENT
-          <div className="mt-10 w-full max-w-7xl mx-auto flex flex-col gap-8">
-            <WorkersSummaryTable
-              rigDataMiner={rigHistorical}
-              rigGpsMap={rigGpsMap}
-              lastN={10}
-            />
-            <section className="bg-gray-1000 rounded">
-              <div className="flex flex-col md:flex-row gap-8">
-                <div className="md:w-1/3">
-                  <RigInfoCard
-                    rigNames={rigNames}
-                    selectedRig={selectedRig}
-                    onRigChange={(newRig) => setSelectedRig(newRig)}
-                    currentGraphRate={
-                      ephemeralMap[selectedRig].dynamicLastGraphRateStr
-                    }
-                    chainHeight={latestBlock?.height || 0}
-                    rig240BlockAvg={
-                      ephemeralMap[selectedRig].dynamic240AvgStr
-                    }
-                    rig1440BlockAvg={
-                      ephemeralMap[selectedRig].dynamic1440AvgStr
-                    }
-                    dailyEarnings={
-                      ephemeralMap[selectedRig].dynamicDailyEarnings
-                    }
-                    sumShares={ephemeralMap[selectedRig].sumSharesVal}
-                  />
-                </div>
-                <div className="md:w-2/3 -8">
-                  <MinerHashRateChart
-                    minerData={ephemeralMap[selectedRig].chartDataHash}
-                  />
-                </div>
-              </div>
+          /* 3. Otherwise, we have loaded content. Let's guard for ephemeralMap. */
+          (() => {
+            const selectedRigData = ephemeralMap[selectedRig];
 
-              <div className="gap-8 mt-6">
-                <MinerSharesChart
-                  minerData={ephemeralMap[selectedRig].chartDataShares}
-                />
-              </div>
+            // If the user picked a rig that doesn't exist in ephemeralMap:
+            if (!selectedRigData) {
+              return (
+                <div className="px-6 pt-8">
+                  <h2 className="text-2xl font-bold mb-2">No data for rig: {selectedRig}</h2>
+                  <p className="text-gray-400">
+                    Please choose a different rig or check again later.
+                  </p>
+                </div>
+              );
+            }
 
-             {/* <div className="mt-6">
-                <RecentBlocksTable
-                  range={40}
-                  recentBlocks={recentPoolBlocks}
-                  lastHeight={ephemeralMap[selectedRig].lastHeight}
-                  networkData={networkHistorical}
-                  mwcPoolData={poolHistorical}
-                  minerShareData={ephemeralMap[selectedRig].chartDataShares}
+            // We do have data for selectedRig, so render the normal UI
+            return (
+              <div className="mt-10 w-full max-w-7xl mx-auto flex flex-col gap-8">
+                <WorkersSummaryTable
+                  rigDataMiner={rigHistorical}
+                  rigGpsMap={rigGpsMap}
+                  lastN={10}
                 />
-              </div>*/}
-            </section>
-          </div>
+
+                <section className="bg-gray-1000 rounded">
+                  <div className="flex flex-col md:flex-row gap-8">
+                    <div className="md:w-1/3">
+                      <RigInfoCard
+                        rigNames={rigNames}
+                        selectedRig={selectedRig}
+                        onRigChange={(newRig) => setSelectedRig(newRig)}
+                        currentGraphRate={selectedRigData.dynamicLastGraphRateStr}
+                        chainHeight={latestBlock?.height || 0}
+                        rig240BlockAvg={selectedRigData.dynamic240AvgStr}
+                        rig1440BlockAvg={selectedRigData.dynamic1440AvgStr}
+                        dailyEarnings={selectedRigData.dynamicDailyEarnings}
+                        sumShares={selectedRigData.sumSharesVal}
+                      />
+                    </div>
+
+                    <div className="md:w-2/3 -8">
+                      <MinerHashRateChart minerData={selectedRigData.chartDataHash} />
+                    </div>
+                  </div>
+
+                  <div className="gap-8 mt-6">
+                    <MinerSharesChart minerData={selectedRigData.chartDataShares} />
+                  </div>
+
+                  {/* Example: If you want to show a recent blocks table
+                  <div className="mt-6">
+                    <RecentBlocksTable
+                      range={40}
+                      recentBlocks={recentPoolBlocks}
+                      lastHeight={selectedRigData.lastHeight}
+                      networkData={networkHistorical}
+                      mwcPoolData={poolHistorical}
+                      minerShareData={selectedRigData.chartDataShares}
+                    />
+                  </div>
+                  */}
+                </section>
+              </div>
+            );
+          })()
         )}
       </main>
     </div>

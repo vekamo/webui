@@ -40,7 +40,7 @@ export default function RigInfoCard({
   sumShares
 }: RigInfoCardProps) {
 
-  console.log(sumShares)
+
   let acceptPercent = String((sumShares.accepted/sumShares.total*100).toFixed(2)) + " %"
   let stalePercent = String((sumShares.stale/sumShares.total*100).toFixed(2)) + " %"
   let rejectPercent = String((sumShares.rejected/sumShares.total*100).toFixed(2)) + " %"

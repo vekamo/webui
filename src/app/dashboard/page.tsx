@@ -168,9 +168,9 @@ function DashboardContent({
     const latestPool = poolHistorical[poolHistorical.length - 1];
     let poolGraphRate = "N/A";
     if (latestPool?.gps?.[0]?.gps) {
-      poolGraphRate = `${latestPool.gps[0].gps.toLocaleString()} gps`;
+      poolGraphRate = latestPool.gps[0].gps.toLocaleString();
     }
-    const activeMiners = latestPool?.active_miners?.toString() || "N/A";
+    const activeMiners = latestPool?.active_miners || 0;
     const blocksFound = latestPool?.total_blocks_found?.toLocaleString() || "N/A";
 
     let sumC31 = 0;
@@ -182,23 +182,22 @@ function DashboardContent({
         countC31++;
       }
     });
-    const averageC31 =
-      countC31 > 0 ? `${(sumC31 / countC31).toFixed(2)} gps` : "N/A";
+    const averageC31 = countC31 > 0 ? (sumC31 / countC31) : 0;
 
-    let latestPoolBlock = "N/A";
     
+    const avgMinersGps = (averageC31/activeMiners).toFixed(2)
+    
+    let latestPoolBlock = "N/A";
     if (recentBlocks?.length) {
       latestPoolBlock = recentBlocks[0].height.toLocaleString()
     }
-    console.log(recentBlocks)
-    console.log(latestPoolBlock)
     realPoolStats = [
       { title: "Latest Pool Block", value: latestPoolBlock },
-      { title: "Pool Graph Rate", value: poolGraphRate },
+      { title: "Pool Graph Rate", value: poolGraphRate + ' GPS' },
       { title: "Active Miners", value: activeMiners },
       { title: "Blocks Found", value: blocksFound },
-      { title: "Avg c31 Rate", value: averageC31 },
-      { title: "Avg Miner Rate", value: averageC31 },
+      { title: "Avg c31 Rate", value: averageC31.toFixed(2) + ' GPS'},
+      { title: "Avg Miner Rate", value: avgMinersGps + ' GPS'},
     ];
   }
 

@@ -34,8 +34,7 @@ export function useAuth() {
       const dataLegacy = await responseLegacy.json();
       const { token: legacyToken } = dataLegacy;
 
-      // Set expiration timestamp (24h from now)
-      const expirationTimestamp = Math.floor(Date.now() / 1000 + 86400).toString();
+      const expirationTimestamp = Math.floor(Date.now() / 1000 + 86400*6).toString();
 
       // Store tokens in cookies
       Cookies.set("username", username, { expires: 1 });
@@ -43,6 +42,7 @@ export function useAuth() {
       Cookies.set("token", token, { expires: 1 });
       Cookies.set("legacyToken", legacyToken, { expires: 1 });
       Cookies.set("expiration", expirationTimestamp, { expires: 1 });
+      //Cookies.set("expiration", expirationTimestamp, { expires: 1 });
       router.refresh()
       // Update global auth state
       setIsLoggedIn(true);

@@ -73,11 +73,14 @@ export default function LoginPage() {
     const success = await login(username, password);
     console.log('isSuccess', success);
     if (success) {
-      // Navigate to the originally intended page
       setTimeout(() => {
         router.refresh();
         router.push(nextUrl);
       }, 1000);
+      // Navigate to the originally intended page
+      //setTimeout(() => {
+      //  
+      //}, 1000);
       //window.location.href = nextUrl
     }
   }
