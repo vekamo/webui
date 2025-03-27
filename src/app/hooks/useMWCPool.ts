@@ -133,51 +133,60 @@ export function useMWCPool() {
   async function fetchMWCPoolBlocksMined(latestBlockHeight: number, minedBlockAlgos: { c31: number[] }) {
     try {
       if (!latestBlockHeight) return;
-      const prev = {
-        c31: blocksMined.c31,
-        orphaned: blocksMined.orphaned,
-        c31BlocksWithTimestamps: blocksMined.c31BlocksWithTimestamps,
-      };
-      let combinedMax = Math.max(Math.max(...prev.c31), Math.max(...prev.orphaned));
+  
+      // Provide fallback if blocksMined is undefined or missing these keys
+      const prevC31 = blocksMined?.c31 ?? [];
+      const prevOrphaned = blocksMined?.orphaned ?? [];
+      const prevTimestamps = blocksMined?.c31BlocksWithTimestamps ?? [];
+  
+      // Now we can safely spread prevC31 & prevOrphaned
+      let combinedMax = Math.max(Math.max(...prevC31), Math.max(...prevOrphaned));
       combinedMax = isFinite(combinedMax) ? combinedMax : 0;
       const diff = combinedMax ? latestBlockHeight - combinedMax : BLOCK_RANGE;
+  
       const url = `${API_URL_V2}pool/blocks/${latestBlockHeight},${diff}`;
       const resp = await fetch(url);
       if (!resp.ok) return;
+      
       const data = await resp.json();
-
-      const c31Found: number[] = [];
-      const c31Timestamps: Record<number, { height: number; timestamp: number }> = {};
-      const orphaned: number[] = [];
-
-      data.forEach((block: any) => {
-        if (block.state === "new") {
-          if (minedBlockAlgos.c31.includes(block.height)) {
-            c31Found.push(block.height);
-            c31Timestamps[block.height] = { height: block.height, timestamp: block.timestamp };
-          }
-        } else if (block.state === "orphan") {
-          orphaned.push(block.height);
-        }
-      });
-
-      const updatedC31 = [...prev.c31, ...c31Found];
-      const updatedOrphan = [...prev.orphaned, ...orphaned];
-      const updatedTimestamps = { ...prev.c31BlocksWithTimestamps, ...c31Timestamps };
-
-      // Filter out old blocks
-      const c31Filtered = updatedC31.filter((h) => h > latestBlockHeight - BLOCK_RANGE);
-      const orphansFiltered = updatedOrphan.filter((h) => h > latestBlockHeight - BLOCK_RANGE);
-
-      setBlocksMined({
-        c31: c31Filtered,
-        orphaned: orphansFiltered,
-        c31BlocksWithTimestamps: updatedTimestamps,
-      });
-    } catch (e) {
-      console.log("fetchMWCPoolBlocksMined error:", e);
+      setBlocksMined(data);
+    } catch (err) {
+      console.error("fetchMWCPoolBlocksMined error =>", err);
     }
   }
+
+      //const c31Found: number[] = [];
+      //const c31Timestamps: Record<number, { height: number; timestamp: number }> = {};
+      //const orphaned: number[] = [];
+//
+      //data.forEach((block: any) => {
+      //  if (block.state === "new") {
+      //    if (minedBlockAlgos.c31.includes(block.height)) {
+      //      c31Found.push(block.height);
+      //      c31Timestamps[block.height] = { height: block.height, timestamp: block.timestamp };
+      //    }
+      //  } else if (block.state === "orphan") {
+      //    orphaned.push(block.height);
+      //  }
+      //});
+//
+      //const updatedC31 = [...prev.c31, ...c31Found];
+      //const updatedOrphan = [...prev.orphaned, ...orphaned];
+      //const updatedTimestamps = { ...prev.c31BlocksWithTimestamps, ...c31Timestamps };
+//
+      //// Filter out old blocks
+      //const c31Filtered = updatedC31.filter((h) => h > latestBlockHeight - BLOCK_RANGE);
+      //const orphansFiltered = updatedOrphan.filter((h) => h > latestBlockHeight - BLOCK_RANGE);
+      //
+      //setBlocksMined({
+      //  c31: c31Filtered,
+      //  orphaned: orphansFiltered,
+      //  c31BlocksWithTimestamps: updatedTimestamps,
+      //});
+  //  } catch (e) {
+  //    console.log("fetchMWCPoolBlocksMined error:", e);
+  //  }
+  //}
 
   return {
     // States

@@ -305,6 +305,14 @@ export default function Navbar() {
             Guide
           </Link>
           <hr
+            className="
+              w-full h-px border-0 
+              bg-gradient-to-r 
+              from-transparent via-gray-600 to-transparent
+              my-4
+            "
+          />
+          <hr
         className="
           w-full h-px border-0
           bg-gradient-to-r

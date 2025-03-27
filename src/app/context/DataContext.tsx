@@ -1,4 +1,4 @@
-"use client"; // Because we use React hooks in a Next.js 13 App Router
+"use client"; // Next.js App Router with React hooks
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import Cookies from "js-cookie";
@@ -12,6 +12,9 @@ import { useMWCPool } from "@/app/hooks/useMWCPool";
 import { useMinerData } from "@/app/hooks/useMinerData";
 import { BLOCK_RANGE } from "@/constants/constants";
 
+// ---------------------------
+// Interface
+// ---------------------------
 interface DataContextType {
   isLoading: boolean;
   error: string;
@@ -23,6 +26,7 @@ interface DataContextType {
   poolHistorical: any[];
   recentPoolBlocks: any[];
   lastBlockMined: any;
+  blocksMined: any;
 
   // Private data
   minerHistorical: any[];
@@ -33,26 +37,55 @@ interface DataContextType {
   immatureBalance: number;
   rigHistorical: any;
 
+  // Ephemeral data
+  ephemeralMap: Record<string, any>;
+  setEphemeralMap: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  selectedRig: string;
+  setSelectedRig: React.Dispatch<React.SetStateAction<string>>;
+  rigNames: string[];
+  setRigNames: React.Dispatch<React.SetStateAction<string[]>>;
+  rigGpsMap: Record<string, number>;
+  setRigGpsMap: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+
+  
+
+  // Whether to show a global spinner
+  //showSpinner: boolean;
+
   // Manual refresh
   refetchAllData: () => void;
+  refreshPayout: () => void;
 }
 
-
-// Create React Context
+// ---------------------------
+// Context creation
+// ---------------------------
 const DataContext = createContext<DataContextType>({} as DataContextType);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   // Pull in isLoggedIn + handleLogout from AuthContext
   const { isLoggedIn, handleLogout } = useAuthContext();
 
-  // Only true on the first load => shows spinner
+  // This controls a global spinner
+  //const [showSpinner, setShowSpinner] = useState(true);
+
+  // This can also be used to show/hide other loading states
   const [isLoading, setIsLoading] = useState(true);
   const [didInitialLoad, setDidInitialLoad] = useState(false);
+
+  // Track previous login state so we know if user has just logged in
+  const [prevIsLoggedIn, setPrevIsLoggedIn] = useState(isLoggedIn);
+
+  // Ephemeral / local state
+  const [ephemeralMap, setEphemeralMap] = useState<Record<string, any>>({});
+  const [selectedRig, setSelectedRig] = useState<string>("default");
+  const [rigNames, setRigNames] = useState<string[]>([]);
+  const [rigGpsMap, setRigGpsMap] = useState<Record<string, number>>({});
 
   // Error state
   const [error, setError] = useState("");
 
-  // ----- Public data hooks -----
+  // Public data hooks
   const {
     networkHistorical,
     latestBlock,
@@ -65,12 +98,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     poolHistorical,
     recentPoolBlocks,
     lastBlockMined,
+    blocksMined,
     fetchMWCPoolData,
     fetchMWCPoolLastBlock,
     fetchMWCPoolRecentBlocks,
+    fetchMWCPoolBlocksMined,
   } = useMWCPool();
 
-  // ----- Private data hook -----
+  // Private data hook
   const {
     minerHistorical,
     nextBlockReward,
@@ -81,7 +116,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     rigHistorical,
     fetchMinerData,
     fetchMinerShareData,
-    fetchMinerTotalValidShares,
+    // fetchMinerTotalValidShares,
     fetchRigData,
     fetchMinerNextBlockReward,
     fetchMinerLatestBlockReward,
@@ -91,29 +126,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     resetMinerData,
   } = useMinerData();
 
-  /**
-   * 1) A stable, top-level function to fetch data:
-   *    - Always fetch public data
-   *    - If isLoggedIn => fetch private data
-   */
+  // ---------------------------
+  // 1) Core fetch function
+  // ---------------------------
   async function fetchAllData(showSpinner: boolean) {
     try {
+      // If this fetch should show the spinner, turn it on
       if (showSpinner) {
+        //setShowSpinner(true);
         setIsLoading(true);
         setError("");
       }
 
-      // 1) Always fetch public data
+      // Always fetch public data
       const blockData = await getLatestBlock();
       const height = blockData?.height ?? 0;
 
       await fetchNetworkData(height);
       await fetchNetworkRecentBlocks(height, 20);
+
       await fetchMWCPoolLastBlock();
       await fetchMWCPoolData(height);
       await fetchMWCPoolRecentBlocks(height, { c31: [0, height] });
+      await fetchMWCPoolBlocksMined(height, { c31: [0, height] });
 
-      // 2) Private data if logged in
+      // Private data if logged in
       if (isLoggedIn) {
         const minerId = Cookies.get("id");
         const token = Cookies.get("token");
@@ -131,91 +168,122 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           await fetchLatestMinerPayments(minerId, token);
           await fetchMinerImmatureBalance(minerId, legacyToken);
           await fetchRigData(minerId, token, BLOCK_RANGE, height);
-          //await fetchMinerTotalValidShares(minerId, token);
         }
       } else {
-        // If we’re not logged in, optionally reset the data here
+        // If we’re not logged in, optionally reset data
         // resetMinerData();
       }
     } catch (err: any) {
       console.error("[DataProvider] fetchAllData error =>", err);
       setError(err.message || "Failed to fetch data.");
     } finally {
+      // If we turned the spinner on at the start, turn it off now
       if (showSpinner) {
+        console.log('yolo')
+        //setShowSpinner(false);
         setIsLoading(false);
         setDidInitialLoad(true);
       }
     }
   }
 
-  /**
-   * 2) On mount => fetch once with spinner
-   */
+  // ---------------------------
+  // 2) On mount, do an immediate fetch with a spinner, then poll
+  // ---------------------------
   useEffect(() => {
-    console.log("[DataProvider] MOUNT => fetchAllData(true)");
     fetchAllData(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    console.log("[DataProvider] MOUNT => fetchAllData(true)");
 
-  /**
-   * 3) Poll every 25 seconds => silent refresh
-   *    => But first check if 'expiration' cookie is expired
-   */
-  useEffect(() => {
-    console.log("[DataProvider] Setting up 25s poll");
-    const intervalId = setInterval(() => {
+    // (B) Then set up the poll interval for every 25s (no spinner)
+    const pollInterval = setInterval(() => {
       const expiration = Cookies.get("expiration");
       if (expiration) {
-        // Convert "expiration" to a number (UNIX timestamp in seconds)
         const expirationTS = parseInt(expiration, 10);
         const now = Math.floor(Date.now() / 1000);
-
-        // If current time > expiration => auto logout
         if (now > expirationTS) {
           console.warn("[DataProvider] Expiration cookie is expired => auto logout");
           handleLogout();
-          return; // Don't fetch data if we just logged out
+          return;
         }
       }
-
-      // Otherwise, do the normal data fetch
       console.log("[DataProvider] poll => fetchAllData(false)");
       fetchAllData(false);
     }, 25000);
 
+    // Cleanup
     return () => {
-      console.log("[DataProvider] Clearing 25s poll");
-      clearInterval(intervalId);
+      console.log("[DataProvider] Clearing poll interval");
+      clearInterval(pollInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [handleLogout]);
 
-  /**
-   * 4) If isLoggedIn changes AFTER the initial load => re-fetch once
-   *    This covers both logging in and logging out
-   */
+  // ---------------------------
+  // 3) Watch for isLoggedIn changes AFTER the initial load
+  // ---------------------------
   useEffect(() => {
     if (didInitialLoad) {
-      console.log("[DataProvider] isLoggedIn changed => fetchAllData(false)");
-      fetchAllData(false);
-
-      // If user just logged out => reset private data
-      if (!isLoggedIn) {
-        console.log("[DataProvider] Resetting private data on logout");
+      // not logged in -> logged in => show spinner + fetch
+      if (isLoggedIn && !prevIsLoggedIn) {
+        console.log("[DataProvider] user just logged in => fetchAllData(true)");
+        fetchAllData(true);
+      }
+      // logged in -> logged out => reset data
+      else if (!isLoggedIn && prevIsLoggedIn) {
+        console.log("[DataProvider] user just logged out => reset data");
+        // optional: show spinner here or skip
+        fetchAllData(true);
         resetMinerData();
+        setEphemeralMap({});
+        setSelectedRig("default");
+        setRigNames([]);
+        setRigGpsMap({});
       }
     }
+    setPrevIsLoggedIn(isLoggedIn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, didInitialLoad]);
 
-  /**
-   * Manual refresh function (e.g. a button "Refresh")
-   */
+  // ---------------------------
+  // 4) Manual refresh function
+  // ---------------------------
   function refetchAllData() {
+    // if you want a spinner on manual refresh, pass true
     fetchAllData(false);
   }
 
-  // Provide data to consumers
+
+  async function refreshPayout() {
+    try {
+      if (isLoggedIn) {
+        const minerId = Cookies.get("id");
+        const token = Cookies.get("token");
+        const legacyToken = Cookies.get("legacyToken");
+  
+        // Safety checks
+        if (!minerId || !token || !legacyToken) {
+          console.warn("[DataProvider] Missing cookies => cannot refresh payout.");
+          return;
+        }
+  
+        // Call the payout-related fetches
+        await fetchMinerPaymentData(minerId, legacyToken);
+        await fetchLatestMinerPayments(minerId, token);
+        await fetchMinerImmatureBalance(minerId, legacyToken);
+  
+      } else {
+        console.warn("[DataProvider] Not logged in => cannot refresh payout.");
+      }
+    } catch (err: any) {
+      console.error("[DataProvider] refreshPayout error =>", err);
+      setError(err.message || "Failed to refresh payout data.");
+    }
+  }
+  
+
+  // ---------------------------
+  // 5) Build the context value
+  // ---------------------------
   const contextValue: DataContextType = {
     isLoading,
     error,
@@ -227,6 +295,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     poolHistorical,
     recentPoolBlocks,
     lastBlockMined,
+    blocksMined,
 
     // Private data
     minerHistorical,
@@ -237,11 +306,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     immatureBalance,
     rigHistorical,
 
+    // Ephemeral data
+    ephemeralMap,
+    setEphemeralMap,
+    selectedRig,
+    setSelectedRig,
+    rigNames,
+    setRigNames,
+    rigGpsMap,
+    setRigGpsMap,
+
+    // Spinner
+    //showSpinner,
+
     // Manual refresh
     refetchAllData,
+    refreshPayout,
   };
 
-  console.log("[DataProvider] Rendered => isLoggedIn:", isLoggedIn);
+  // Optional: log each render
+  const currentTime = new Date().toLocaleString();
+  console.log(`[DataProvider] ${currentTime} Rendered => isLoggedIn:`, isLoggedIn);
+  console.log(`[DataProvider] ${currentTime} Rendered => isLoading:`, isLoading);
 
   return (
     <DataContext.Provider value={contextValue}>
@@ -250,7 +336,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// A hook for consuming our data context
+// A hook to consume our data context
 export function useDataContext() {
   return useContext(DataContext);
 }

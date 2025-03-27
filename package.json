@@ -15,6 +15,7 @@
     "@mui/material": "^6.4.8",
     "chart.js": "^4.4.8",
     "chartjs-adapter-date-fns": "^3.0.0",
+    "chartjs-plugin-annotation": "^3.1.0",
     "date-fns": "^4.1.0",
     "hi-base32": "^0.5.1",
     "js-cookie": "^3.0.5",

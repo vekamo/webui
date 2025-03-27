@@ -95,7 +95,7 @@ export function sumShares(rigBlockData: Record<string, any>): { accepted: number
   let totalRejected = 0;
   let totalStale = 0;
   let total = 0;
-  console.log(rigBlockData)
+  //console.log(rigBlockData)
   // Iterate over each worker's algorithms (e.g., workerId => { algos })
   for (const block of Object.keys(rigBlockData)) {
     const workerAlgos = rigBlockData[block];

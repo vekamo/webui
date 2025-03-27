@@ -47,19 +47,19 @@ export default function RigsPage() {
     rigHistorical,
     networkHistorical,
     latestBlock,
-    immatureBalance,
-    poolHistorical,
-    recentPoolBlocks,
-    nextBlockReward,
+    ephemeralMap,
+    setEphemeralMap,
+    selectedRig,
+    setSelectedRig,
+    rigNames,
+    setRigNames,
+    rigGpsMap,
+    setRigGpsMap,
   } = useDataContext();
 
-  // Which rig we have selected
-  const [selectedRig, setSelectedRig] = useState<string>("default");
+  //console.log(ephemeralMap, selectedRig, rigNames, rigGpsMap)
 
-  // Data structures for ephemeral info
-  const [ephemeralMap, setEphemeralMap] = useState<Record<string, any>>({});
-  const [rigNames, setRigNames] = useState<string[]>([]);
-  const [rigGpsMap, setRigGpsMap] = useState<Record<string, number>>({});
+  // Which rig we have select
 
   useEffect(() => {
     // Build network info in a usable format
@@ -175,7 +175,7 @@ export default function RigsPage() {
             {error}
           </div>
         ) : /* 2. If loading or we have no rigs, show a spinner. */
-        isLoading || !rigNames.length ? (
+        isLoading ? (
           <div className="flex items-center justify-center h-[calc(100vh-5rem)]">
             <div className="flex flex-col items-center gap-4">
               <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-white" />
@@ -224,12 +224,12 @@ export default function RigsPage() {
                       />
                     </div>
 
-                    <div className="md:w-2/3 -8">
+                    <div className="md:w-2/3">
                       <MinerHashRateChart minerData={selectedRigData.chartDataHash} />
                     </div>
                   </div>
 
-                  <div className="gap-8 mt-6">
+                  <div className="gap-8 mt-8">
                     <MinerSharesChart minerData={selectedRigData.chartDataShares} />
                   </div>
 

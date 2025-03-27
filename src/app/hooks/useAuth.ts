@@ -13,7 +13,7 @@ export function useAuth() {
 
   async function login(username: string, password: string) {
     try {
-      setIsLoading(true);
+      //setIsLoading(true);
       setAuthError(null);
 
       const authHeader = "Basic " + btoa(`${username}:${password}`);
@@ -37,20 +37,20 @@ export function useAuth() {
       const expirationTimestamp = Math.floor(Date.now() / 1000 + 86400*6).toString();
 
       // Store tokens in cookies
-      Cookies.set("username", username, { expires: 1 });
-      Cookies.set("id", id, { expires: 1 });
-      Cookies.set("token", token, { expires: 1 });
-      Cookies.set("legacyToken", legacyToken, { expires: 1 });
-      Cookies.set("expiration", expirationTimestamp, { expires: 1 });
+      Cookies.set("username", username, { expires: 6 });
+      Cookies.set("id", id, { expires: 6 });
+      Cookies.set("token", token, { expires: 6 });
+      Cookies.set("legacyToken", legacyToken, { expires: 6 });
+      Cookies.set("expiration", expirationTimestamp, { expires: 6 });
       //Cookies.set("expiration", expirationTimestamp, { expires: 1 });
       router.refresh()
       // Update global auth state
       setIsLoggedIn(true);
-      setIsLoading(false);
+      //setIsLoading(false);
       return true;
     } catch (err: any) {
       console.error("Login error:", err);
-      setIsLoading(false);
+      //setIsLoading(false);
       setAuthError(err.message || "Login failed");
       return false;
     }
@@ -58,7 +58,7 @@ export function useAuth() {
 
   async function signup(username: string, password: string) {
     try {
-      setIsLoading(true);
+      //setIsLoading(true);
       setAuthError(null);
 
       const formData = new FormData();
@@ -83,11 +83,11 @@ export function useAuth() {
         }
       }
 
-      setIsLoading(false);
+      //setIsLoading(false);
       return true;
     } catch (err: any) {
       console.error("Signup error:", err);
-      setIsLoading(false);
+      //setIsLoading(false);
       setAuthError(err.message || "Signup failed");
       return false;
     }

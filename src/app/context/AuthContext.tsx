@@ -36,11 +36,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoggedIn(false);
 
     // Optionally refresh the page and redirect
-    setTimeout(() => {
-      router.refresh();
-      router.push("/login");
-    }, 300);
+    //setTimeout(() => {
+    //  
+    //}, 300);
     router.refresh();
+    router.push("/login");
+    //router.refresh();
   }
 
   return (

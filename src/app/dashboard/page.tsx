@@ -43,6 +43,7 @@ export default function DashboardPage() {
     lastBlockMined,
     poolHistorical,
     recentPoolBlocks,
+    blocksMined
   } = useDataContext();
 
   return (
@@ -89,6 +90,7 @@ export default function DashboardPage() {
               poolHistorical={poolHistorical}
               recentBlocks={recentPoolBlocks}
               latestPoolBlockMined= {lastBlockMined}
+              blockMined ={blocksMined}
             />
           </div>
         )}
@@ -103,12 +105,14 @@ function DashboardContent({
   poolHistorical,
   recentBlocks,
   latestPoolBlockMined,
+  blockMined
 }: {
   networkHistorical: any[];
   latestBlock: any;
   poolHistorical: any[];
   recentBlocks: any[];
   latestPoolBlockMined: any[];
+  blockMined: any[]
 }) {
   // A) Transform network data => chart, stats
   let networkHashRateData: HashRatePoint[] = [];
@@ -227,6 +231,7 @@ function DashboardContent({
       <PoolNetworkHashRateChart
         poolData={poolHashRateData}
         networkData={networkHashRateData}
+        blockMined= {blockMined}
         smooth
         windowSize={5}
       />

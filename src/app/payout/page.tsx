@@ -11,7 +11,7 @@ import LatestPaymentsTable, {
 
 export default function PayoutPage() {
   // Now we can use all React client features: useState, useContext, etc.
-  const { isLoading, error, minerPaymentData, latestMinerPayments, immatureBalance } =
+  const { isLoading, error, minerPaymentData, latestMinerPayments, immatureBalance, refreshPayout } =
     useDataContext();
 
   // If you need username on client side:
@@ -92,6 +92,7 @@ export default function PayoutPage() {
                   resumeSlate={resumeSlate}
                   isResumeMode={isResumeMode}
                   setIsResumeMode={setIsResumeMode}
+                  refreshPayout={refreshPayout}
                 />
               </div>
             </div>

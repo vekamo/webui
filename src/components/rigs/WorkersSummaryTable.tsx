@@ -10,7 +10,6 @@ interface WorkersSummaryTableProps {
    *     rigB: { ... },
    *     timestamp?: number
    *   }
-   * }
    */
   rigDataMiner: Record<number, any>;
 
@@ -143,7 +142,7 @@ export default function WorkersSummaryTable({
     });
   }
 
-  // Sort by rigName (alphabetically), then worker
+  // Sort by rigName ascending, then workerId ascending
   tableRows.sort((a, b) => {
     if (a.rigName !== b.rigName) {
       return a.rigName.localeCompare(b.rigName);
@@ -157,7 +156,7 @@ export default function WorkersSummaryTable({
   return (
     <div
       className="
-        w-full mt-8
+        w-full
         rounded-lg shadow-md
         bg-gradient-to-r from-[#182026] to-[#0f1215]
         border border-[#2A2D34]

@@ -17,6 +17,7 @@ interface PayoutSetupCardProps {
   resumeSlate?: string;
   isResumeMode?: boolean;
   setIsResumeMode?: React.Dispatch<React.SetStateAction<boolean>>;
+  refreshPayout: () => void;
 }
 
 export default function PayoutSetupCard({
@@ -27,6 +28,7 @@ export default function PayoutSetupCard({
   resumeSlate,
   isResumeMode = false,
   setIsResumeMode,
+  refreshPayout
 }: PayoutSetupCardProps) {
   const [requestResult, setRequestResult] = useState("");
   const [justCopied, setJustCopied] = useState(false);
@@ -48,6 +50,7 @@ export default function PayoutSetupCard({
   // If user is logged in, read cookies
   const minerId = Cookies.get("id") ?? "";
   const legacyToken = Cookies.get("legacyToken") ?? "";
+  const token = Cookies.get("token") ?? "";
 
   /** Helper: ephemeral “toast” notification */
   function showNotification(msg: string, isError = false) {
@@ -110,7 +113,7 @@ export default function PayoutSetupCard({
 
     try {
       setRequestResult("");
-      await fetchMinerPaymentTxSlate(minerId, legacyToken, addr);
+      await fetchMinerPaymentTxSlate(minerId, legacyToken, token, addr);
       showNotification("Initial slatepack generated!");
       setTimeout(() => {
         setNotification("");
@@ -136,6 +139,7 @@ export default function PayoutSetupCard({
         setNotification("");
         setIsErrorNotif(false);
       }, 3000);
+      refreshPayout()
     } catch (error) {
       showErrorAndReset("Error finalizing slatepack");
     }

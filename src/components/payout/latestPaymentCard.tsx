@@ -92,7 +92,7 @@ export default function LatestPaymentsTable({
   return (
     <div
       className="
-        w-full mt-8
+        w-full
         rounded-lg shadow-md
         bg-gradient-to-r from-[#182026] to-[#0f1215]
         border border-[#2A2D34]

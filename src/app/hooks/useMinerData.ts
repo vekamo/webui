@@ -293,7 +293,7 @@ export function useMinerData() {
   }
 
   // --------------- fetchMinerPaymentTxSlate ---------------
-  async function fetchMinerPaymentTxSlateHook(id: string, legacyToken: string, address: string) {
+  async function fetchMinerPaymentTxSlateHook(id: string, legacyToken: string, token:string, address: string) {
     setIsTxSlateLoading(true);
     setManualPaymentError(null);
 
@@ -312,12 +312,14 @@ export function useMinerData() {
         const data = await resp.json();
         const cleanedSlatepack = stripWrappingQuotes(data);
         setMinerPaymentTxSlate(cleanedSlatepack);
+        
       }
     } catch (e) {
       console.log("fetchMinerPaymentTxSlateHook Error:", e);
       setManualPaymentError(e);
     } finally {
       setIsTxSlateLoading(false);
+      refreshPayout(id, legacyToken, token)
     }
   }
 
@@ -352,6 +354,21 @@ export function useMinerData() {
     }
   }
 
+  // --------------- refreshPayout ---------------
+  async function refreshPayout(minerId: string, legacyToken: string, token: string) {
+    try {
+      await Promise.all([
+        fetchMinerPaymentDataHook(minerId, legacyToken),
+        fetchLatestMinerPaymentsHook(minerId, token),
+        fetchMinerImmatureBalanceHook(minerId, legacyToken),
+      ]);
+      console.log("Payout data successfully refreshed.");
+    } catch (error) {
+      console.error("Error refreshing payout:", error);
+    }
+  }
+
+
   // ------------------------------------------------------------------
   // 4) Reset method for clearing all the above states (useful on logout)
   // ------------------------------------------------------------------
@@ -364,6 +381,8 @@ export function useMinerData() {
     setImmatureBalance(0);
     setNextBlockReward(null);
     setLatestBlockReward(null);
+    setRigHistorical({})
+    
 
     // TX slate states
     setIsTxSlateLoading(false);

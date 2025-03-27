@@ -16,31 +16,60 @@ import {
   ChartOptions,
   TooltipItem,
 } from "chart.js";
+
+// IMPORTANT: version 4 of chartjs-plugin-annotation
+import annotationPlugin, {
+  AnnotationOptions,
+} from "chartjs-plugin-annotation";
+
 import { Line } from "react-chartjs-2";
 
-ChartJS.register(TimeScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+ChartJS.register(
+  TimeScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  annotationPlugin // register the annotation plugin
+);
 
 // ----------------------------
 // 1) Data types
 // ----------------------------
 interface MWCPoint {
   x: number;        // time in ms
-  y: number;        // the hashRate
-  height: number;   // optional
+  y: number | null; // allow null so chart doesn't force 0
+  height: number;   
   difficulty: number;
 }
 
 export interface MWCBlockChartPoint {
   timestamp: number;    // in seconds
-  hashRate: number;
+  hashRate: number | null;
   height?: number;
   difficulty?: number;
+}
+
+interface MinedBlock {
+  height: number;
+  hash: string;
+  nonce: string;
+  actual_difficulty: number;
+  net_difficulty: number;
+  state: string;
+  timestamp: number; // in seconds
 }
 
 // ----------------------------
 // 2) Rolling average function
 // ----------------------------
-function applyRollingAverage(data: MWCBlockChartPoint[], windowSize = 5): MWCBlockChartPoint[] {
+function applyRollingAverage(
+  data: MWCBlockChartPoint[],
+  windowSize = 5
+): MWCBlockChartPoint[] {
   if (data.length < windowSize) return data;
   const smoothed: MWCBlockChartPoint[] = [];
   const halfWindow = Math.floor(windowSize / 2);
@@ -51,10 +80,14 @@ function applyRollingAverage(data: MWCBlockChartPoint[], windowSize = 5): MWCBlo
     let sum = 0;
     let count = 0;
     for (let j = start; j <= end; j++) {
-      sum += data[j].hashRate;
-      count++;
+      // Only sum non-null values
+      if (data[j].hashRate != null) {
+        sum += data[j].hashRate!;
+        count++;
+      }
     }
-    const avg = sum / count;
+    // If we never found a non-null, just leave it null
+    const avg = count === 0 ? null : sum / count;
     const mid = Math.floor((start + end) / 2);
     smoothed.push({
       timestamp: data[mid].timestamp,
@@ -68,27 +101,30 @@ function applyRollingAverage(data: MWCBlockChartPoint[], windowSize = 5): MWCBlo
 }
 
 // ----------------------------
-// 3) Unify timestamps so each data set matches index-for-index
+// 3) Unify timestamps
 // ----------------------------
 function unifyTimestamps(
   pool: MWCBlockChartPoint[],
   net: MWCBlockChartPoint[]
 ) {
   // 1) Gather all unique timestamps
-  const allTimes = new Set([...pool.map(d => d.timestamp), ...net.map(d => d.timestamp)]);
+  const allTimes = new Set([
+    ...pool.map((d) => d.timestamp),
+    ...net.map((d) => d.timestamp),
+  ]);
   // 2) Sort ascending
   const sortedTimes = Array.from(allTimes).sort((a, b) => a - b);
 
   // 3) Build lookup
-  const poolMap = new Map(pool.map(d => [d.timestamp, d]));
-  const netMap = new Map(net.map(d => [d.timestamp, d]));
+  const poolMap = new Map(pool.map((d) => [d.timestamp, d]));
+  const netMap = new Map(net.map((d) => [d.timestamp, d]));
 
-  // 4) Fill each array
-  const filledPool: MWCBlockChartPoint[] = sortedTimes.map(t =>
-    poolMap.get(t) || { timestamp: t, hashRate: 0 }
+  // 4) Fill each array, using null instead of 0 for missing data
+  const filledPool: MWCBlockChartPoint[] = sortedTimes.map((t) =>
+    poolMap.get(t) || { timestamp: t, hashRate: null }
   );
-  const filledNet: MWCBlockChartPoint[] = sortedTimes.map(t =>
-    netMap.get(t) || { timestamp: t, hashRate: 0 }
+  const filledNet: MWCBlockChartPoint[] = sortedTimes.map((t) =>
+    netMap.get(t) || { timestamp: t, hashRate: null }
   );
 
   return { poolPlot: filledPool, netPlot: filledNet };
@@ -100,6 +136,7 @@ function unifyTimestamps(
 interface Props {
   poolData: MWCBlockChartPoint[];
   networkData: MWCBlockChartPoint[];
+  blockMined?: MinedBlock[]; // optional
   smooth?: boolean;
   windowSize?: number;
 }
@@ -110,19 +147,36 @@ interface Props {
 export default function PoolNetworkHashRateChart({
   poolData,
   networkData,
+  blockMined = [], // default to empty array
   smooth = true,
   windowSize = 5,
 }: Props) {
-  // 1) Smooth if requested
-  const poolPlotRaw = smooth ? applyRollingAverage(poolData, windowSize) : poolData;
-  const netPlotRaw = smooth ? applyRollingAverage(networkData, windowSize) : networkData;
+  // 1) Find the earliest network timestamp
+  //    Then filter out any blockMined that is older than that.
+  console.log(poolData,networkData, blockMined)
+  let earliestNetTS: number | null = null;
+  if (networkData.length > 0) {
+    // "networkData" might not be sorted, so let's find the min
+    earliestNetTS = Math.min(...networkData.map((d) => d.timestamp));
+  }
 
-  // 2) Unify timestamps if we want "index" alignment
+  let filteredBlocks = blockMined;
+  if (earliestNetTS !== null) {
+    filteredBlocks = blockMined.filter(
+      (b) => b.timestamp >= earliestNetTS!
+    );
+  }
+
+  // 2) Smooth if requested
+  const poolPlotRaw = smooth ? applyRollingAverage(poolData, windowSize) : poolData;
+  const netPlotRaw  = smooth ? applyRollingAverage(networkData, windowSize) : networkData;
+
+  // 3) Unify timestamps
   const { poolPlot, netPlot } = unifyTimestamps(poolPlotRaw, netPlotRaw);
 
-  // 3) Convert each to chart data shape
+  // 4) Convert each to chart data shape
   const poolPoints: MWCPoint[] = poolPlot.map((d) => ({
-    x: d.timestamp * 1000,     // ms for Chart.js
+    x: d.timestamp * 1000, // convert seconds -> ms
     y: d.hashRate,
     height: d.height ?? 0,
     difficulty: d.difficulty ?? 0,
@@ -135,7 +189,6 @@ export default function PoolNetworkHashRateChart({
     difficulty: d.difficulty ?? 0,
   }));
 
-  // 4) Create Chart.js dataset config
   const chartData: ChartData<"line", MWCPoint[], number> = {
     datasets: [
       {
@@ -150,6 +203,7 @@ export default function PoolNetworkHashRateChart({
           createFillGradient(ctx, "rgba(20,184,166,0.3)", "rgba(20,184,166,0)"),
         pointRadius: 0,
         yAxisID: "y",
+        spanGaps: true,
       },
       {
         label: "Pool",
@@ -163,16 +217,38 @@ export default function PoolNetworkHashRateChart({
           createFillGradient(ctx, "rgba(167,139,250,0.3)", "rgba(167,139,250,0)"),
         pointRadius: 0,
         yAxisID: "y",
+        spanGaps: true,
       },
     ],
   };
 
-  // 5) Chart.js options
+  const annotationObject = filteredBlocks.reduce(
+    (acc, block, index) => {
+      const isNotNew = block.state !== "new";
+      acc[`block${index}`] = {
+        type: "line",
+        xMin: block.timestamp * 1000,
+        xMax: block.timestamp * 1000,
+        // If orphan or otherwise, set your borderColor as needed
+        borderColor: isNotNew 
+          ? "rgb(255, 71, 231)" 
+          : "rgba(0, 225, 255, 0.25)",
+        borderWidth: isNotNew ? 0.4 : 0.2 ,
+        // If NOT 'new', add dash; if 'new', solid line
+        borderDash: isNotNew ? [2, 2] : [],
+      };
+  
+      return acc;
+    },
+    {} as Record<string, AnnotationOptions<"line">>
+  );
+
+  // 6) Chart.js options
   const options: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
-      mode: "index", // <<-- now we can safely do index alignment
+      mode: "index",
       intersect: false,
     },
     scales: {
@@ -204,6 +280,9 @@ export default function PoolNetworkHashRateChart({
       },
     },
     plugins: {
+      annotation: {
+        annotations: annotationObject,
+      },
       legend: {
         display: true,
         labels: {
@@ -234,7 +313,6 @@ export default function PoolNetworkHashRateChart({
         callbacks: {
           title: (items: TooltipItem<"line">[]) => {
             if (!items.length) return "";
-            // just use the first dataset's raw point
             const raw = items[0].raw as MWCPoint;
             const dateObj = new Date(raw.x);
             return dateObj.toLocaleString([], {
@@ -255,7 +333,8 @@ export default function PoolNetworkHashRateChart({
             if (raw.difficulty && raw.difficulty > 0) {
               lines.push(`Difficulty: ${raw.difficulty.toLocaleString()}`);
             }
-            lines.push(`GPS: ${raw.y.toLocaleString()} gps`);
+            const gps = raw.y == null ? "-" : raw.y.toLocaleString();
+            lines.push(`GPS: ${gps} gps`);
             return lines;
           },
         },
@@ -263,7 +342,7 @@ export default function PoolNetworkHashRateChart({
     },
   };
 
-  // 6) Render
+  // 7) Render
   return (
     <div
       className="
@@ -283,7 +362,7 @@ export default function PoolNetworkHashRateChart({
       </div>
 
       <p className="text-sm text-gray-400">
-      Compares the total network hashrate with our pool's graphrate
+        Compares the total network hashrate with our pool&apos;s graphrate
       </p>
 
       <div className="w-full h-64 mt-2">
