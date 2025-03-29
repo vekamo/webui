@@ -197,65 +197,93 @@ export default function Navbar() {
         `}
       >
         {/* Links container */}
-        <div className="w-11/12 max-w-md flex flex-col items-center pt-1 pb-4">
-          {/* Each link has an <hr> below it, for a separator */}
+        <div className="w-11/12 max-w-md flex flex-col items-center pt-1 pb-4 mt-4">
+          {/* Each link + hr below it */}
           <Link
             href="/dashboard"
             onClick={() => setMenuOpen(false)}
             className="
-              block w-full px-5 py-3 text-center
+              block w-full px-5 py-4 text-center
               text-white hover:text-gray-300
               transition
             "
           >
             Dashboard
           </Link>
-          <hr className="w-full h-px border-0 bg-gray-600" />
+          <hr
+            className="
+              w-full h-px border-0
+              bg-gradient-to-r
+              from-transparent via-gray-700 to-transparent
+              my-2
+            "
+          />
 
           <Link
             href="/miners"
             onClick={() => setMenuOpen(false)}
             className="
-              block w-full px-5 py-3 text-center
+              block w-full px-5 py-4 text-center
               text-white hover:text-gray-300
               transition
             "
           >
             Miners
           </Link>
-          <hr className="w-full h-px border-0 bg-gray-600" />
+          <hr
+            className="
+              w-full h-px border-0
+              bg-gradient-to-r
+              from-transparent via-gray-700 to-transparent
+              my-2
+            "
+          />
 
           <Link
             href="/rigs"
             onClick={() => setMenuOpen(false)}
             className="
-              block w-full px-5 py-3 text-center
+              block w-full px-5 py-4 text-center
               text-white hover:text-gray-300
               transition
             "
           >
             Rigs
           </Link>
-          <hr className="w-full h-px border-0 bg-gray-600" />
+          <hr
+            className="
+              w-full h-px border-0
+              bg-gradient-to-r
+              from-transparent via-gray-700 to-transparent
+              my-2
+            "
+          />
 
           <Link
             href="/payout"
             onClick={() => setMenuOpen(false)}
             className="
-              block w-full px-5 py-3 text-center
+              block w-full px-5 py-4 text-center
               text-white hover:text-gray-300
               transition
             "
           >
             Payout
           </Link>
-          <hr className="w-full h-px border-0 bg-gray-600" />
+          <hr
+            className="
+              w-full h-px border-0
+              bg-gradient-to-r
+              from-transparent via-gray-700 to-transparent
+              my-2
+            "
+          />
 
           <Link
             href="/guide"
             onClick={() => setMenuOpen(false)}
             className="
-              block w-full px-5 py-3 text-center
+              block w-full px-5 py-4 text-center
               text-white hover:text-gray-300
               transition
             "

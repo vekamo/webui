@@ -4,6 +4,7 @@ WORKDIR /webui
 
 # Install dependencies based on lockfile
 COPY package.json yarn.lock ./
+RUN yarn config set network-timeout 600000 -g
 RUN yarn install --frozen-lockfile
 
 # Rebuild the source code only when needed

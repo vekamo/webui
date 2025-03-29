@@ -28,7 +28,7 @@ export default function PayoutSetupCard({
   resumeSlate,
   isResumeMode = false,
   setIsResumeMode,
-  refreshPayout
+  refreshPayout,
 }: PayoutSetupCardProps) {
   const [requestResult, setRequestResult] = useState("");
   const [justCopied, setJustCopied] = useState(false);
@@ -75,14 +75,18 @@ export default function PayoutSetupCard({
     }
   }, [minerPaymentTxSlate]);
 
-  // NEW APPROACH: If isResumeMode is set to TRUE in the parent,
-  // we apply resumeSlate again, even if it's the same string as before.
+  // If isResumeMode is set, apply resumeSlate again => show a toast for 5s
   useEffect(() => {
     if (isResumeMode && resumeSlate && resumeSlate.trim().length > 0) {
       setRequestResult(resumeSlate.trim());
       showNotification("Resumed an existing slatepack!");
+      // Auto-clear the notification after 5s
+      setTimeout(() => {
+        setNotification("");
+        setIsErrorNotif(false);
+      }, 5000);
     }
-  }, [isResumeMode]); // depends on isResumeMode
+  }, [isResumeMode, resumeSlate]);
 
   // If manualPaymentError changes => display error & reset
   useEffect(() => {
@@ -119,7 +123,7 @@ export default function PayoutSetupCard({
         setNotification("");
         setIsErrorNotif(false);
       }, 3000);
-      refreshPayout()
+      refreshPayout();
     } catch (error) {
       showErrorAndReset("Error generating slatepack");
     }
@@ -140,7 +144,7 @@ export default function PayoutSetupCard({
         setNotification("");
         setIsErrorNotif(false);
       }, 3000);
-      refreshPayout()
+      refreshPayout();
     } catch (error) {
       showErrorAndReset("Error finalizing slatepack");
     }
@@ -170,7 +174,7 @@ export default function PayoutSetupCard({
     setRequestResult("");
     setJustCopied(false);
     if (setIsResumeMode) {
-      setIsResumeMode(false); // important so we can re-trigger the effect next time
+      setIsResumeMode(false); // so we can re-trigger the resume logic next time
     }
   }
 

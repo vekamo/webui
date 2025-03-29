@@ -8,8 +8,6 @@ import React, {
 } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
-import { useMinerData } from "../hooks/useMinerData";
-import { useDataContext } from "./DataContext";
 
 interface AuthContextValue {
   isLoggedIn: boolean;
@@ -28,7 +26,7 @@ const AuthContext = createContext<AuthContextValue>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
+
   const handleLogout = useCallback(() => {
     Cookies.remove("username");
     Cookies.remove("id");
