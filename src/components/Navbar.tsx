@@ -3,12 +3,10 @@
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/context/AuthContext";
 import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
 
 export default function Navbar() {
-  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -16,7 +14,7 @@ export default function Navbar() {
   const navRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // If you click outside the nav, close the mobile menu
+    // Close the mobile menu if user clicks outside the nav
     function handleClickOutside(event: MouseEvent) {
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
@@ -30,11 +28,11 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true);
+    // If there's a token in cookies, user is logged in
     const token = Cookies.get("token");
+    console.log("!!token", !!token);
     setIsLoggedIn(!!token);
   }, [setIsLoggedIn]);
-
-  
 
   const rawUsername = Cookies.get("username") || "User";
   const displayUsername =
@@ -42,9 +40,7 @@ export default function Navbar() {
 
   return (
     <>
-      {/* 
-        1) Keep the <hr> you originally had, EXACTLY as you wrote it:
-      */}
+      {/* --- Top horizontal rule --- */}
       <hr
         className="
           w-full h-px border-0
@@ -54,7 +50,7 @@ export default function Navbar() {
         "
       />
 
-      {/* 2) NAVBAR */}
+      {/* --- NAVBAR --- */}
       <nav
         ref={navRef}
         className="
@@ -115,7 +111,7 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile: Show either login or logout, plus the burger menu */}
+        {/* Mobile Menu (hamburger + login/logout) */}
         <div className="sm:hidden flex items-center gap-5">
           {mounted && isLoggedIn ? (
             <button
@@ -148,6 +144,7 @@ export default function Navbar() {
               Login
             </Link>
           )}
+
           {/* Burger menu icon */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
@@ -187,31 +184,21 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* 
-        MOBILE NAVIGATION (Burger Dropdown Menu) 
-        with a black background to match the navbar:
-      */}
+      {/* --- MOBILE NAV (dropdown) --- */}
       <div
         className={`
           sm:hidden flex flex-col items-center
           absolute top-[72px] left-0 w-full
-          bg-black 
+          bg-black
           rounded-b shadow-lg z-100
-          pt-1 pb-0
           transition-all duration-500 ease-in-out
           overflow-hidden
           ${menuOpen ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"}
         `}
       >
-        <div className="w-11/12 max-w-md flex flex-col items-center">
-          <hr
-            className="
-              w-full h-px border-0 
-              bg-gradient-to-r 
-              from-transparent via-gray-600 to-transparent
-              my-4
-            "
-          />
+        {/* Links container */}
+        <div className="w-11/12 max-w-md flex flex-col items-center pt-1 pb-4">
+          {/* Each link has an <hr> below it, for a separator */}
           <Link
             href="/dashboard"
             onClick={() => setMenuOpen(false)}
@@ -223,14 +210,7 @@ export default function Navbar() {
           >
             Dashboard
           </Link>
-          <hr
-            className="
-              w-full h-px border-0 
-              bg-gradient-to-r 
-              from-transparent via-gray-600 to-transparent
-              my-4
-            "
-          />
+          <hr className="w-full h-px border-0 bg-gray-600" />
 
           <Link
             href="/miners"
@@ -243,15 +223,7 @@ export default function Navbar() {
           >
             Miners
           </Link>
-
-          <hr
-            className="
-              w-full h-px border-0 
-              bg-gradient-to-r 
-              from-transparent via-gray-600 to-transparent
-              my-4
-            "
-          />
+          <hr className="w-full h-px border-0 bg-gray-600" />
 
           <Link
             href="/rigs"
@@ -264,14 +236,7 @@ export default function Navbar() {
           >
             Rigs
           </Link>
-          <hr
-            className="
-              w-full h-px border-0 
-              bg-gradient-to-r 
-              from-transparent via-gray-600 to-transparent
-              my-4
-            "
-          />
+          <hr className="w-full h-px border-0 bg-gray-600" />
 
           <Link
             href="/payout"
@@ -284,14 +249,7 @@ export default function Navbar() {
           >
             Payout
           </Link>
-          <hr
-            className="
-              w-full h-px border-0 
-              bg-gradient-to-r 
-              from-transparent via-gray-600 to-transparent
-              my-4
-            "
-          />
+          <hr className="w-full h-px border-0 bg-gray-600" />
 
           <Link
             href="/guide"
@@ -304,25 +262,10 @@ export default function Navbar() {
           >
             Guide
           </Link>
-          <hr
-            className="
-              w-full h-px border-0 
-              bg-gradient-to-r 
-              from-transparent via-gray-600 to-transparent
-              my-4
-            "
-          />
-          <hr
-        className="
-          w-full h-px border-0
-          bg-gradient-to-r
-          from-transparent via-gray-700 to-transparent
-          my-0
-        "
-      />
         </div>
-        
       </div>
+
+      {/* --- Bottom horizontal rule --- */}
       <hr
         className="
           w-full h-px border-0

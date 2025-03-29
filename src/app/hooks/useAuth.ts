@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 export function useAuth() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const { setIsLoggedIn } = useAuthContext();
 
@@ -93,20 +93,9 @@ export function useAuth() {
     }
   }
 
-  function logout() {
-    Cookies.remove("username");
-    Cookies.remove("id");
-    Cookies.remove("token");
-    Cookies.remove("legacyToken");
-    Cookies.remove("expiration");
-    router.refresh()
-    setIsLoggedIn(false);
-  }
-
   return {
     login,
     signup,
-    logout,
     isLoading,
     authError,
   };

@@ -58,7 +58,6 @@ function getStateTextClass(stateValue?: string): string {
   }
 }
 
-/** LatestPaymentsTable component */
 export default function LatestPaymentsTable({
   payments,
   onResumeTx,
@@ -66,8 +65,20 @@ export default function LatestPaymentsTable({
   const [justCopiedAddrRowId, setJustCopiedAddrRowId] = useState<number | null>(null);
   const [justCopiedUuidRowId, setJustCopiedUuidRowId] = useState<number | null>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const ITEMS_PER_PAGE = 10; // Adjust as needed
+
   // If no payments, show nothing
   if (!payments || payments.length === 0) return null;
+
+  // Calculate pagination values
+  const totalPages = Math.ceil(payments.length / ITEMS_PER_PAGE);
+
+  // Slice the payments array based on currentPage
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedPayments = payments.slice(startIdx, endIdx);
 
   async function handleCopyAddress(rowId: number, fullAddr: string) {
     try {
@@ -87,6 +98,14 @@ export default function LatestPaymentsTable({
     } catch (err) {
       console.error("Copy UUID failed:", err);
     }
+  }
+
+  function handlePreviousPage() {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  }
+
+  function handleNextPage() {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   }
 
   return (
@@ -126,9 +145,9 @@ export default function LatestPaymentsTable({
           </thead>
 
           <tbody>
-            {payments.map((p, index) => {
+            {paginatedPayments.map((p, index) => {
               // Use p.id if it's guaranteed unique; otherwise fallback to index
-              const rowKey = p.id != null ? p.id : `row-${index}`;
+              const rowKey = p.id ?? `row-${index}`;
               const dateStr = new Date(p.timestamp).toLocaleString();
               const stateClass = getStateTextClass(p.state);
               const amountStr = formatToMWC(p.amount);
@@ -222,6 +241,29 @@ export default function LatestPaymentsTable({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-center gap-4 mt-4">
+        <button
+          className="px-3 py-1 bg-[#2A2D34] text-gray-300 hover:bg-[#34373e] rounded"
+          onClick={handlePreviousPage}
+          disabled={currentPage === 1}
+        >
+          Previous
+        </button>
+
+        <span className="text-gray-300">
+          Page {currentPage} of {totalPages}
+        </span>
+
+        <button
+          className="px-3 py-1 bg-[#2A2D34] text-gray-300 hover:bg-[#34373e] rounded"
+          onClick={handleNextPage}
+          disabled={currentPage === totalPages}
+        >
+          Next
+        </button>
       </div>
     </div>
   );

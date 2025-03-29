@@ -10,14 +10,12 @@ export default async function LoginPage(props: any) {
   // If you're on Next 13.2–13.3, cookies() might be async, so we await it:
   const cookieStore = await cookies();
   const token = cookieStore.get("token");
+  const sParams = await searchParams;
+  const nextUrl = sParams?.next || "/miners";
 
   if (token) {
-    redirect(searchParams?.next || "/miners");
+    redirect(nextUrl);
   }
 
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <LoginForm />
-    </Suspense>
-  );
+  return <LoginForm />
 }

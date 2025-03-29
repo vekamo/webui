@@ -30,7 +30,8 @@ function formatTimestamp(epochSeconds?: number): string {
  * (1 MWC = 1e9 atomic)
  */
 function formatAmount(raw: number): string {
-  const mwcValue = raw / 1e9;
+  const safeValue = raw ?? 0;
+  const mwcValue = safeValue / 1e9;
   return mwcValue.toFixed(9) + " MWC";
 }
 

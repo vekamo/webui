@@ -151,9 +151,8 @@ export default function PoolNetworkHashRateChart({
   smooth = true,
   windowSize = 5,
 }: Props) {
-  // 1) Find the earliest network timestamp
-  //    Then filter out any blockMined that is older than that.
-  console.log(poolData,networkData, blockMined)
+
+  //console.log(poolData, networkData, blockMined)
   let earliestNetTS: number | null = null;
   if (networkData.length > 0) {
     // "networkData" might not be sorted, so let's find the min

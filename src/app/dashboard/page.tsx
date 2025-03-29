@@ -150,6 +150,10 @@ function DashboardContent({
       title: "Reward",
       value: "0.05 MWC",
     },
+    {
+      title: "Time Ago",
+      value: latestBlock?.timestamp,
+    },
   ];
 
   // B) Transform pool data => chart, stats
@@ -200,8 +204,8 @@ function DashboardContent({
       { title: "Pool Graph Rate", value: poolGraphRate + ' GPS' },
       { title: "Active Miners", value: activeMiners },
       { title: "Blocks Found", value: blocksFound },
-      { title: "Avg c31 Rate", value: averageC31.toFixed(2) + ' GPS'},
-      { title: "Avg Miner Rate", value: avgMinersGps + ' GPS'},
+      { title: "Avg c31 Rate", value: averageC31.toLocaleString() + ' GPS'},
+      { title: "Avg Miner Rate", value: avgMinersGps.toLocaleString() + ' GPS'},
     ];
   }
 

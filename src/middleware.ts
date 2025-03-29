@@ -5,7 +5,6 @@ import type { NextRequest } from "next/server";
 const PROTECTED_PATHS = ["/miners", "/rigs", "/payout"];
 
 export function middleware(request: NextRequest) {
-
   // Grab info from the NextRequest
   const url = request.nextUrl;
   const { pathname, search } = url;

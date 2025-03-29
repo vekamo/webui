@@ -1,8 +1,15 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+} from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
+import { useMinerData } from "../hooks/useMinerData";
+import { useDataContext } from "./DataContext";
 
 interface AuthContextValue {
   isLoggedIn: boolean;
@@ -16,33 +23,23 @@ const AuthContext = createContext<AuthContextValue>({
   handleLogout: () => {},
 });
 
+
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  /**
-   * This is your logout function,
-   * called by any component that needs to log out.
-   */
-  function handleLogout() {
-    // Remove cookies
+  
+  const handleLogout = useCallback(() => {
     Cookies.remove("username");
     Cookies.remove("id");
     Cookies.remove("token", { path: "/" });
     Cookies.remove("legacyToken", { path: "/" });
     Cookies.remove("expiration");
-
-    // Flip auth state to false
+    console.log("[AuthContext] -> handleLogout() => setIsLoggedIn(false)");
     setIsLoggedIn(false);
-
-    // Optionally refresh the page and redirect
-    //setTimeout(() => {
-    //  
-    //}, 300);
     router.refresh();
     router.push("/login");
-    //router.refresh();
-  }
+  }, [router]);
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, setIsLoggedIn, handleLogout }}>

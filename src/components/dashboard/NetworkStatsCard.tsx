@@ -1,9 +1,9 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface PoolStat {
   title: string;
-  value: string;
+  value: string; // For "Time Ago", this should initially be a timestamp like "2025-03-28T12:34:56Z"
 }
 
 /**
@@ -13,14 +13,51 @@ interface PoolStat {
  *   - 2-col grid for other stats
  *   - same dark gradient, border, fonts, text sizing
  */
-export default function NetworkStatsCard({
-  stats,
-}: {
-  stats: PoolStat[];
-}) {
-  // Optional: pick the first item as the "big stat" & show the rest in grid
-  // If you prefer them all in the grid, remove the "big stat" block
-  const [firstStat, ...otherStats] = stats;
+export default function NetworkStatsCard({ stats }: { stats: PoolStat[] }) {
+  // If there's a "Time Ago" stat, we'll update it every second.
+  const [timeAgo, setTimeAgo] = useState<string>("");
+
+  // Find the stat with title "Time Ago" (if any).
+  const timeAgoStat = stats.find((stat) => stat.title === "Time Ago");
+
+  useEffect(() => {
+    if (!timeAgoStat) return; // If no "Time Ago" stat, do nothing.
+
+    // Parse the original "Time Ago" stat's value as a Date.
+    const blockTime = new Date(timeAgoStat.value);
+
+    function updateTime() {
+      const now = new Date();
+      let diffInSeconds = Math.floor((now.getTime() - blockTime.getTime()*1000) / 1000);
+
+      // If the block time is in the future, clamp to 0.
+      if (diffInSeconds < 0) {
+        diffInSeconds = 0;
+      }
+
+      const minutes = Math.floor(diffInSeconds / 60);
+      const seconds = diffInSeconds % 60;
+
+      // Update our local state, which we'll inject into the displayed stats below.
+      setTimeAgo(`${minutes} min ${seconds} sec ago`);
+    }
+
+    // Update once immediately, then every second.
+    updateTime();
+    const id = setInterval(updateTime, 1000);
+    return () => clearInterval(id);
+  }, [timeAgoStat]);
+
+  // Replace the stat's value with our continuously-updated timeAgo (if it's the "Time Ago" stat).
+  const processedStats: PoolStat[] = stats.map((stat) => {
+    if (stat.title === "Time Ago" && timeAgoStat) {
+      return { ...stat, value: timeAgo };
+    }
+    return stat;
+  });
+
+  // Optionally pick the first item as the "big stat" and the rest in a grid.
+  const [firstStat, ...otherStats] = processedStats;
 
   return (
     <div

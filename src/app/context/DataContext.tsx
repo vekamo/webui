@@ -1,14 +1,10 @@
-"use client"; // Next.js App Router with React hooks
+"use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import Cookies from "js-cookie";
 import { useAuthContext } from "./AuthContext";
-
-// Public data hooks
 import { useNetworkData } from "@/app/hooks/useNetworkData";
 import { useMWCPool } from "@/app/hooks/useMWCPool";
-
-// Private data hook
 import { useMinerData } from "@/app/hooks/useMinerData";
 import { BLOCK_RANGE } from "@/constants/constants";
 
@@ -47,45 +43,30 @@ interface DataContextType {
   rigGpsMap: Record<string, number>;
   setRigGpsMap: React.Dispatch<React.SetStateAction<Record<string, number>>>;
 
-  
-
-  // Whether to show a global spinner
-  //showSpinner: boolean;
-
   // Manual refresh
   refetchAllData: () => void;
   refreshPayout: () => void;
 }
 
-// ---------------------------
-// Context creation
-// ---------------------------
 const DataContext = createContext<DataContextType>({} as DataContextType);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  // Pull in isLoggedIn + handleLogout from AuthContext
   const { isLoggedIn, handleLogout } = useAuthContext();
-
-  // This controls a global spinner
-  //const [showSpinner, setShowSpinner] = useState(true);
-
-  // This can also be used to show/hide other loading states
+  // Basic loading / error states
   const [isLoading, setIsLoading] = useState(true);
   const [didInitialLoad, setDidInitialLoad] = useState(false);
+  const [error, setError] = useState("");
 
-  // Track previous login state so we know if user has just logged in
+  // Keep track of the previous login state
   const [prevIsLoggedIn, setPrevIsLoggedIn] = useState(isLoggedIn);
 
-  // Ephemeral / local state
+  // Local ephemeral data
   const [ephemeralMap, setEphemeralMap] = useState<Record<string, any>>({});
   const [selectedRig, setSelectedRig] = useState<string>("default");
   const [rigNames, setRigNames] = useState<string[]>([]);
   const [rigGpsMap, setRigGpsMap] = useState<Record<string, number>>({});
 
-  // Error state
-  const [error, setError] = useState("");
-
-  // Public data hooks
+  // Hooks for public data
   const {
     networkHistorical,
     latestBlock,
@@ -105,7 +86,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     fetchMWCPoolBlocksMined,
   } = useMWCPool();
 
-  // Private data hook
+  // Hooks for private data
   const {
     minerHistorical,
     nextBlockReward,
@@ -116,7 +97,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     rigHistorical,
     fetchMinerData,
     fetchMinerShareData,
-    // fetchMinerTotalValidShares,
     fetchRigData,
     fetchMinerNextBlockReward,
     fetchMinerLatestBlockReward,
@@ -126,14 +106,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     resetMinerData,
   } = useMinerData();
 
-  // ---------------------------
-  // 1) Core fetch function
-  // ---------------------------
+  // OPTIONAL: track if a fetch is in progress (to avoid concurrency)
+  const fetchInProgressRef = useRef(false);
+  const isLoggedInRef = useRef(isLoggedIn);
+
+  /**
+   * Our main fetch function. We now accept `currentIsLoggedIn` as a parameter
+   * so this function won't rely on possibly stale closures.
+   */
   async function fetchAllData(showSpinner: boolean) {
+    // If you want to avoid concurrency, you can do:
+    if (fetchInProgressRef.current) {
+      console.log("[DataProvider] fetchAllData => Already fetching; skip.");
+      return;
+    }
+    fetchInProgressRef.current = true;
+
     try {
-      // If this fetch should show the spinner, turn it on
       if (showSpinner) {
-        //setShowSpinner(true);
         setIsLoading(true);
         setError("");
       }
@@ -150,51 +140,42 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       await fetchMWCPoolRecentBlocks(height, { c31: [0, height] });
       await fetchMWCPoolBlocksMined(height, { c31: [0, height] });
 
-      // Private data if logged in
-      if (isLoggedIn) {
+      // If logged in (based on the param, NOT the closure)
+      if (isLoggedInRef) {
         const minerId = Cookies.get("id");
         const token = Cookies.get("token");
         const legacyToken = Cookies.get("legacyToken");
-
-        if (!minerId || !token || !legacyToken) {
-          console.warn("[DataProvider] Missing cookies => skip private fetch.");
-        } else {
+        if (minerId && token && legacyToken) {
           await fetchMinerData(minerId, token, height);
           await fetchMinerShareData(minerId, token, height);
-
           await fetchMinerNextBlockReward(minerId, legacyToken);
           await fetchMinerLatestBlockReward(minerId, legacyToken, height);
           await fetchMinerPaymentData(minerId, legacyToken);
           await fetchLatestMinerPayments(minerId, token);
           await fetchMinerImmatureBalance(minerId, legacyToken);
           await fetchRigData(minerId, token, BLOCK_RANGE, height);
+        } else {
+          console.warn("[DataProvider] Missing cookies => skip private fetch.");
         }
-      } else {
-        // If we’re not logged in, optionally reset data
-        // resetMinerData();
       }
     } catch (err: any) {
       console.error("[DataProvider] fetchAllData error =>", err);
       setError(err.message || "Failed to fetch data.");
     } finally {
-      // If we turned the spinner on at the start, turn it off now
+      fetchInProgressRef.current = false;
       if (showSpinner) {
-        console.log('yolo')
-        //setShowSpinner(false);
         setIsLoading(false);
         setDidInitialLoad(true);
       }
     }
   }
 
-  // ---------------------------
-  // 2) On mount, do an immediate fetch with a spinner, then poll
-  // ---------------------------
+  /**
+   * On mount, do an immediate fetch with spinner, then poll every 25s without spinner
+   */
   useEffect(() => {
     fetchAllData(true);
-    console.log("[DataProvider] MOUNT => fetchAllData(true)");
-
-    // (B) Then set up the poll interval for every 25s (no spinner)
+    
     const pollInterval = setInterval(() => {
       const expiration = Cookies.get("expiration");
       if (expiration) {
@@ -206,52 +187,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       }
-      console.log("[DataProvider] poll => fetchAllData(false)");
       fetchAllData(false);
     }, 25000);
 
-    // Cleanup
-    return () => {
-      console.log("[DataProvider] Clearing poll interval");
-      clearInterval(pollInterval);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => clearInterval(pollInterval);
   }, [handleLogout]);
 
-  // ---------------------------
-  // 3) Watch for isLoggedIn changes AFTER the initial load
-  // ---------------------------
   useEffect(() => {
     if (didInitialLoad) {
-      // not logged in -> logged in => show spinner + fetch
-      if (isLoggedIn && !prevIsLoggedIn) {
-        console.log("[DataProvider] user just logged in => fetchAllData(true)");
-        fetchAllData(true);
-      }
-      // logged in -> logged out => reset data
-      else if (!isLoggedIn && prevIsLoggedIn) {
+      // Logged *in* -> *out*
+      if (!isLoggedIn && prevIsLoggedIn) {
         console.log("[DataProvider] user just logged out => reset data");
-        // optional: show spinner here or skip
-        fetchAllData(true);
         resetMinerData();
         setEphemeralMap({});
         setSelectedRig("default");
         setRigNames([]);
         setRigGpsMap({});
+        // If you want to fetch just the public data again:
+        fetchAllData(true);
+      }
+      // Logged *out* -> *in*
+      else if (isLoggedIn && !prevIsLoggedIn) {
+        console.log("[DataProvider] user just logged in => fetchAllData(true)");
+        fetchAllData(true);
       }
     }
     setPrevIsLoggedIn(isLoggedIn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, didInitialLoad]);
 
-  // ---------------------------
-  // 4) Manual refresh function
-  // ---------------------------
   function refetchAllData() {
-    // if you want a spinner on manual refresh, pass true
+    // If you want a spinner on manual refresh, pass true
     fetchAllData(false);
   }
-
 
   async function refreshPayout() {
     try {
@@ -259,18 +227,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const minerId = Cookies.get("id");
         const token = Cookies.get("token");
         const legacyToken = Cookies.get("legacyToken");
-  
-        // Safety checks
         if (!minerId || !token || !legacyToken) {
           console.warn("[DataProvider] Missing cookies => cannot refresh payout.");
           return;
         }
-  
-        // Call the payout-related fetches
         await fetchMinerPaymentData(minerId, legacyToken);
         await fetchLatestMinerPayments(minerId, token);
         await fetchMinerImmatureBalance(minerId, legacyToken);
-  
       } else {
         console.warn("[DataProvider] Not logged in => cannot refresh payout.");
       }
@@ -279,11 +242,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setError(err.message || "Failed to refresh payout data.");
     }
   }
-  
 
-  // ---------------------------
-  // 5) Build the context value
-  // ---------------------------
+  // Build the context value
   const contextValue: DataContextType = {
     isLoading,
     error,
@@ -316,18 +276,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     rigGpsMap,
     setRigGpsMap,
 
-    // Spinner
-    //showSpinner,
-
     // Manual refresh
     refetchAllData,
     refreshPayout,
   };
-
-  // Optional: log each render
-  const currentTime = new Date().toLocaleString();
-  console.log(`[DataProvider] ${currentTime} Rendered => isLoggedIn:`, isLoggedIn);
-  console.log(`[DataProvider] ${currentTime} Rendered => isLoading:`, isLoading);
 
   return (
     <DataContext.Provider value={contextValue}>

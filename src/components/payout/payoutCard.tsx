@@ -119,6 +119,7 @@ export default function PayoutSetupCard({
         setNotification("");
         setIsErrorNotif(false);
       }, 3000);
+      refreshPayout()
     } catch (error) {
       showErrorAndReset("Error generating slatepack");
     }
