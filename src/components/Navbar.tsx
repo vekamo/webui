@@ -28,9 +28,7 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true);
-    // If there's a token in cookies, user is logged in
     const token = Cookies.get("token");
-    console.log("!!token", !!token);
     setIsLoggedIn(!!token);
   }, [setIsLoggedIn]);
 
