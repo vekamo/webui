@@ -158,12 +158,7 @@ export default function Navbar() {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             ) : (
               <svg
@@ -172,12 +167,7 @@ export default function Navbar() {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4 6h16M4 12h16m-7 6h7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
               </svg>
             )}
           </button>
@@ -198,7 +188,14 @@ export default function Navbar() {
       >
         {/* Links container */}
         <div className="w-11/12 max-w-md flex flex-col items-center pt-1 pb-4 mt-4">
-          {/* Each link + hr below it */}
+          <hr
+            className="
+              w-full h-px border-0
+              bg-gradient-to-r
+              from-transparent via-gray-700 to-transparent
+              my-2
+            "
+          />
           <Link
             href="/dashboard"
             onClick={() => setMenuOpen(false)}
@@ -290,6 +287,14 @@ export default function Navbar() {
           >
             Guide
           </Link>
+          <hr
+            className="
+              w-full h-px border-0
+              bg-gradient-to-r
+              from-transparent via-gray-700 to-transparent
+              my-2
+            "
+          />
         </div>
       </div>
 
