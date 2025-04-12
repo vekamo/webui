@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 import { useAuth } from "@/app/hooks/useAuth";
+import Link from "next/link";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function LoginForm() {
 
     const success = await login(username, password);
     if (success) {
-      router.refresh()
+      router.refresh();
       router.push(nextUrl); // go to nextUrl upon success
     }
 
@@ -92,6 +93,24 @@ export default function LoginForm() {
           </button>
         </div>
       </form>
+
+      {/* 
+        ADDITIONAL LINKS FOR 
+        "Don't have an account?" and "Back to Home" 
+      */}
+      <p className="text-gray-500 text-sm mt-4">
+        Don&apos;t have an account?{" "}
+        <Link href="/signup" className="ml-1 text-white hover:underline">
+          Sign Up
+        </Link>
+      </p>
+
+      <Link
+        href="/"
+        className="mt-6 text-gray-500 text-sm hover:text-white transition"
+      >
+        ← Back to Home
+      </Link>
     </div>
   );
 }
