@@ -38,6 +38,32 @@ export default function Navbar() {
 
   return (
     <>
+      {/* --- ORANGE INFO BAR --- */}
+      <div className="w-full bg-orange-500 text-black py-2 text-center text-sm sm:text-base px-4">
+        <span className="font-semibold">Notice:</span> Pool fee will increase to
+        <span className="font-semibold"> 4% </span> effective
+        <span className="font-semibold"> 27 May 2025</span> until mwcpool.com’s
+        hashrate falls below 35%. Please consider mining on&nbsp;
+        <a
+          href="https://2miners.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-gray-800"
+        >
+          2Miners
+        </a>
+        ,&nbsp;
+        <a
+          href="https://woolypooly.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-gray-800"
+        >
+          WoolyPooly
+        </a>
+        .
+      </div>
+
       {/* --- Top horizontal rule --- */}
       <hr
         className="
