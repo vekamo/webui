@@ -45,21 +45,12 @@ export default function Navbar() {
         <span className="font-semibold"> 27 May 2025</span> until mwcpool.com’s
         hashrate falls below 35%. Please consider mining on&nbsp;
         <a
-          href="https://2miners.com"
+          href="https://2miners.com/mwc-mining-pool"
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:text-gray-800"
         >
           2Miners
-        </a>
-        ,&nbsp;
-        <a
-          href="https://woolypooly.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:text-gray-800"
-        >
-          WoolyPooly
         </a>
         .
       </div>
